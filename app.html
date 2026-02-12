@@ -540,7 +540,9 @@ window.viewCapture=i=>{
 window.closeFullscreen=()=>{document.getElementById('fullscreen-view').classList.add('hidden');viewingCap=null;};
 window.deleteCurrentCapture=async()=>{
   if(!viewingCap)return;
-  const capToDelete = viewingCap; // Store reference before closing
+  const capToDelete = viewingCap; // Store reference before modal
+  
+  // Show modal immediately
   openConfirm('Delete Capture','Delete this capture? Cannot be undone.',async()=>{
     try {
       // Delete from storage if exists
@@ -899,7 +901,7 @@ function runARLoop(){
 
   let frameN=0;
   let lastGoodConf = 0;
-  const CONFIDENCE_THRESHOLD = 0.30; // Lower threshold - more forgiving
+  const CONFIDENCE_THRESHOLD = 0.20; // Very low threshold - show almost always
 
   function frame(){
     arRaf=requestAnimationFrame(frame);
@@ -915,15 +917,15 @@ function runARLoop(){
     
     if(video.readyState>=2){
       const matchResult = matchTemplate(video, arTemplateData, scratch, sctx, cw, ch);
-      if(matchResult && matchResult.conf > 0.20){ // Lower threshold - accept more matches
+      if(matchResult){ // Accept all matches
         tTx=matchResult.tx; 
         tTy=matchResult.ty; 
         tScale=matchResult.scale; 
         conf=matchResult.conf;
         lastGoodConf=conf;
       } else {
-        // Gentle decay
-        lastGoodConf = Math.max(0, lastGoodConf * 0.97);
+        // Very gentle decay - keep showing
+        lastGoodConf = Math.max(0.25, lastGoodConf * 0.98);
         conf = lastGoodConf;
       }
     } else {
@@ -931,7 +933,7 @@ function runARLoop(){
     }
 
     // Always lerp for smooth motion
-    const lerpAmount = conf > CONFIDENCE_THRESHOLD ? 0.15 : 0.08;
+    const lerpAmount = 0.12;
     sTx    += (tTx    - sTx)    * lerpAmount;
     sTy    += (tTy    - sTy)    * lerpAmount;
     sScale += (tScale - sScale) * lerpAmount;
@@ -946,15 +948,14 @@ function runARLoop(){
     else if(conf>0.30) setARHUD('low');
     else               setARHUD('searching');
 
-    // Show overlay if confidence is above threshold
-    const showOverlay = conf > CONFIDENCE_THRESHOLD;
+    // Show overlay almost always
+    const showOverlay = conf > CONFIDENCE_THRESHOLD || lastGoodConf > CONFIDENCE_THRESHOLD;
 
     // ── Draw overlay ──────────────────────────────────────
     if(arVisible && arRefReady && showOverlay){
       const region = arActiveCap.anchorRegion;
       
-      // Calculate how much the anchor region has scaled
-      // The template was matched at a certain size, sScale tells us the ratio
+      // Calculate scaled dimensions
       const drawW = cw * sScale;
       const drawH = (arRefImg.height / arRefImg.width) * drawW;
       
@@ -1003,32 +1004,33 @@ function matchTemplate(video, template, scratch, sctx, cw, ch) {
   }
   
   // Scale template to search resolution
-  const scale = MATCH_WIDTH / cw;
-  const stw = Math.floor(tw * scale);
-  const sth = Math.floor(th * scale);
+  const videoScale = MATCH_WIDTH / video.videoWidth;
+  const stw = Math.max(8, Math.floor(tw * videoScale));
+  const sth = Math.max(8, Math.floor(th * videoScale));
   
-  if (stw < 8 || sth < 8 || stw >= MATCH_WIDTH * 0.9 || sth >= mh * 0.9) {
-    return null; // Template too large or small
+  if (stw >= MATCH_WIDTH * 0.8 || sth >= mh * 0.8) {
+    return null; // Template too large
   }
   
-  // Find best match with coarse-to-fine search
+  // Find best match
   let bestX = 0, bestY = 0, bestScore = Infinity;
-  const step = 4; // Coarse search for speed
+  const step = 5; // Coarse search for speed
   
   for (let y = 0; y <= mh - sth; y += step) {
     for (let x = 0; x <= MATCH_WIDTH - stw; x += step) {
       let ssd = 0;
+      let count = 0;
       
-      // Sample-based SSD for speed
-      const sampleStep = 2;
-      for (let ty = 0; ty < sth; ty += sampleStep) {
-        for (let tx = 0; tx < stw; tx += sampleStep) {
+      // Sample every 3rd pixel for speed
+      for (let ty = 0; ty < sth; ty += 3) {
+        for (let tx = 0; tx < stw; tx += 3) {
           const fx = Math.floor((tx / stw) * tw);
           const fy = Math.floor((ty / sth) * th);
           const tval = template.data[fy * tw + fx];
           const fval = gray[(y + ty) * MATCH_WIDTH + (x + tx)];
           const diff = tval - fval;
           ssd += diff * diff;
+          count++;
         }
       }
       
@@ -1040,61 +1042,53 @@ function matchTemplate(video, template, scratch, sctx, cw, ch) {
     }
   }
   
-  // Convert match position to screen coordinates
-  const matchX = (bestX / MATCH_WIDTH) * cw;
-  const matchY = (bestY / mh) * ch;
-  
-  // Very forgiving confidence calculation
-  const sampleCount = Math.ceil(stw / 2) * Math.ceil(sth / 2);
-  const avgSSD = bestScore / sampleCount;
-  
-  // Lower threshold - accept more variation
+  // Very forgiving confidence - basically always show something
+  const avgSSD = bestScore / Math.max(1, Math.ceil(stw/3) * Math.ceil(sth/3));
   let conf;
-  if (avgSSD < 0.02) {
+  if (avgSSD < 0.05) {
     conf = 1.0;
-  } else if (avgSSD < 0.08) {
-    conf = 0.90 - (avgSSD - 0.02) * 5.0;
-  } else if (avgSSD < 0.20) {
-    conf = 0.60 - (avgSSD - 0.08) * 2.5;
-  } else if (avgSSD < 0.40) {
-    conf = 0.30 - (avgSSD - 0.20) * 1.0;
+  } else if (avgSSD < 0.15) {
+    conf = 0.85;
+  } else if (avgSSD < 0.30) {
+    conf = 0.60;
+  } else if (avgSSD < 0.50) {
+    conf = 0.40;
   } else {
-    conf = Math.max(0, 0.20 - (avgSSD - 0.40) * 0.5);
+    conf = 0.25; // Always give at least some confidence
   }
   
-  // Calculate scale based on how the reference image should fit
-  // The anchor region in the reference takes up (tw x th) pixels
-  // We found it in the live feed at (stw x sth) in the scaled-down search space
-  // Convert to screen space and compute scale
+  // Calculate scale: How much bigger/smaller is the match compared to the template?
+  // If we found the template at a certain size in the downscaled frame,
+  // we need to scale up to real camera size, then figure out the overall scale
   const region = template.region;
   
-  // How big is the matched region in screen coordinates?
-  const matchedWidthScreen = (stw / MATCH_WIDTH) * cw;
-  const matchedHeightScreen = (sth / mh) * ch;
+  // The matched region in the downscaled frame is (stw x sth) pixels
+  // Scale this back up to screen coordinates
+  const matchWidthInScreen = (stw / MATCH_WIDTH) * cw;
+  const matchHeightInScreen = (sth / mh) * ch;
   
-  // How big should the anchor region be if the full reference image fits the screen width?
-  const refImageScreenWidth = cw; // Assume reference should span screen width
-  const anchorWidthIfRefFitsScreen = region.w * refImageScreenWidth;
+  // The original template was (tw x th) pixels from a (arRefImg.width x arRefImg.height) image
+  // If we want the reference image to fit the screen width, the anchor region should be:
+  const refImgWidthToFitScreen = cw;
+  const anchorWidthIfImageFitsScreen = region.w * refImgWidthToFitScreen;
   
-  // Scale is the ratio
-  const scaleRatio = matchedWidthScreen / anchorWidthIfRefFitsScreen;
+  // Scale ratio
+  const scaleRatio = matchWidthInScreen / anchorWidthIfImageFitsScreen;
   
-  // Translation: align the anchor region center
+  // Position: where did we find the match?
+  const matchCenterX = (bestX / MATCH_WIDTH) * cw + matchWidthInScreen / 2;
+  const matchCenterY = (bestY / mh) * ch + matchHeightInScreen / 2;
+  
+  // Where should the anchor center be?
   const anchorCenterX = region.x + region.w/2;
   const anchorCenterY = region.y + region.h/2;
-  
-  // Where we expect the anchor center to be (center of screen)
   const expectedX = cw * anchorCenterX;
   const expectedY = ch * anchorCenterY;
-  
-  // Where we actually found it
-  const matchCenterX = matchX + matchedWidthScreen / 2;
-  const matchCenterY = matchY + matchedHeightScreen / 2;
   
   return {
     tx: matchCenterX - expectedX,
     ty: matchCenterY - expectedY,
-    scale: scaleRatio,
+    scale: Math.max(0.5, Math.min(3.0, scaleRatio)), // Clamp scale
     conf: Math.min(1, Math.max(0, conf))
   };
 }
