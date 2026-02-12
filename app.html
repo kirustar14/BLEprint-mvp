@@ -457,7 +457,7 @@
 </div>
 
 <!-- ── Firebase & App JS ─────────────────────────────────────── -->
-<script src="firebase-config.js"></script>
+<script type="module" src="firebase-config.js"></script>
 <script type="module">
 import { initializeApp }              from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, signOut, onAuthStateChanged }
@@ -468,8 +468,10 @@ import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc,
 import { getStorage, ref, uploadString, getDownloadURL, deleteObject }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 
+import { FIREBASE_CONFIG } from './firebase-config.js';
+
 // ── Init Firebase ──────────────────────────────────────────────
-const app     = initializeApp(window.FIREBASE_CONFIG);
+const app     = initializeApp(FIREBASE_CONFIG);
 const auth    = getAuth(app);
 const db      = getFirestore(app);
 const storage = getStorage(app);
