@@ -130,7 +130,9 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
          updateProfile, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-const app  = initializeApp(window.FIREBASE_CONFIG);
+import { FIREBASE_CONFIG } from './firebase-config.js';
+
+const app  = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app);
 
 // ── Toast utility ────────────────────────────────────────────
