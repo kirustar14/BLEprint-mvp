@@ -123,15 +123,14 @@
 </div>
 
 <!-- ── Firebase & Auth JS ────────────────────────────────────── -->
+<script src="firebase-config.js"></script>
 <script type="module">
 import { initializeApp }              from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
          updateProfile, GoogleAuthProvider, signInWithPopup, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
-import { FIREBASE_CONFIG } from './firebase-config.js';
-
-const app  = initializeApp(FIREBASE_CONFIG);
+const app  = initializeApp(window.FIREBASE_CONFIG);
 const auth = getAuth(app);
 
 // ── Toast utility ────────────────────────────────────────────
