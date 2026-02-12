@@ -753,7 +753,7 @@ window.deleteCurrentScene = () => {
 };
 
 // ── Captures ────────────────────────────────────────────────────
-async function loadCaptures1() {
+async function loadCaptures() {
   try {
     const q    = query(collection(db, 'captures'), where('sceneId', '==', currentScene.id), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
@@ -765,7 +765,7 @@ async function loadCaptures1() {
   }
 }
 
-async function loadCaptures() {
+async function loadCaptures1() {
   try {
     console.log('=== LOAD CAPTURES DEBUG ===');
     console.log('Current User UID:', currentUser.uid);
