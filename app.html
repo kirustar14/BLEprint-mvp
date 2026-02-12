@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#111419" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>BLEprint App</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="favicon.png" />
+  <link rel="apple-touch-icon" href="icon.png" />
+</head>
+<body>
+
+<!-- ── Toast ─────────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<!-- ── Global Loading ────────────────────────────────────── -->
+<div id="app-loading" class="loading-overlay">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+    <div style="font-family:var(--font-display);font-size:2rem;font-weight:800;letter-spacing:0.1em;color:var(--blue);">BLEprint</div>
+    <div class="spinner" style="color:var(--blue);width:28px;height:28px;border-width:3px;"></div>
+  </div>
+</div>
+
+<!-- ── Fullscreen Capture View ────────────────────────────── -->
+<div id="fullscreen-view" class="fullscreen-view hidden">
+  <div class="fullscreen-header">
+    <button class="btn btn-icon btn-secondary" onclick="closeFullscreen()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span id="fullscreen-title" style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;letter-spacing:0.06em;flex:1;">Capture</span>
+    <button class="btn btn-icon btn-danger" id="delete-capture-btn" onclick="deleteCurrentCapture()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    </button>
+  </div>
+  <img id="fullscreen-img" src="" alt="Capture" />
+  <div class="fullscreen-info">
+    <div id="fullscreen-anchor" style="font-family:var(--font-mono);font-size:0.72rem;color:var(--amber);margin-bottom:6px;"></div>
+    <div id="fullscreen-notes" style="font-size:0.85rem;color:var(--text-secondary);"></div>
+    <div id="fullscreen-date" style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- ── App Shell ──────────────────────────────────────────── -->
+<div id="app-shell" class="app-shell hidden">
+
+  <!-- Header -->
+  <header class="app-header">
+    <span class="header-logo">BLEprint</span>
+    <div class="header-breadcrumb" id="breadcrumb">
+      <span class="active">Scenes</span>
+    </div>
+    <div class="header-actions">
+      <div id="header-user" style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="app-content" id="app-content">
+
+    <!-- ===== SCENES SCREEN ===== -->
+    <div id="screen-scenes" class="screen active" style="overflow-y:auto;">
+      <div class="scenes-header">
+        <div>
+          <div class="scenes-title">My Scenes</div>
+          <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="scenes-subtitle">Loading…</div>
+        </div>
+        <button class="btn btn-primary" onclick="openCreateSceneModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Scene
+        </button>
+      </div>
+
+      <div id="scenes-list" class="scenes-list"></div>
+    </div>
+
+    <!-- ===== SCENE DETAIL SCREEN ===== -->
+    <div id="screen-detail" class="screen" style="overflow-y:auto;">
+      <div class="detail-header">
+        <button class="btn btn-icon btn-secondary" onclick="goToScenes()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div>
+          <div class="detail-title" id="detail-title">Scene Name</div>
+          <div class="detail-desc" id="detail-desc">No description</div>
+        </div>
+        <button class="btn btn-icon btn-danger" style="margin-left:auto;" onclick="deleteCurrentScene()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="detail-actions">
+        <div class="action-tile" onclick="openCameraScreen()">
+          <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <div class="action-tile-name">CAPTURE</div>
+          <div class="action-tile-desc">Take photo</div>
+        </div>
+        <div class="action-tile" onclick="openARScreen()">
+          <svg viewBox="0 0 24 24"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+          <div class="action-tile-name">AR VIEW</div>
+          <div class="action-tile-desc">Overlay mode</div>
+        </div>
+        <div class="action-tile" onclick="openGalleryPicker()">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <div class="action-tile-name">IMPORT</div>
+          <div class="action-tile-desc">From gallery</div>
+        </div>
+        <div class="action-tile" onclick="openEditSceneModal()">
+          <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <div class="action-tile-name">EDIT</div>
+          <div class="action-tile-desc">Scene info</div>
+        </div>
+      </div>
+
+      <!-- Captures gallery -->
+      <div class="captures-section">
+        <div class="captures-title">
+          Captures
+          <span class="captures-count" id="captures-count">0</span>
+        </div>
+        <div id="captures-grid" class="captures-grid"></div>
+        <div id="captures-empty" class="empty-state" style="padding:24px 0;">
+          <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+          <div class="empty-title">No Captures Yet</div>
+          <div class="empty-desc">Tap Capture to take your first photo and document MEP infrastructure.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CAMERA SCREEN ===== -->
+    <div id="screen-camera" class="screen">
+      <div class="camera-screen" style="flex:1;position:relative;">
+        <!-- Top bar -->
+        <div class="camera-top-bar">
+          <button class="camera-side-btn" onclick="closeCameraScreen()">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <span class="camera-scene-name" id="camera-scene-name">Scene</span>
+          <div style="width:40px;"></div>
+        </div>
+
+        <!-- Video feed -->
+        <video id="camera-video" autoplay playsinline muted></video>
+
+        <!-- Hidden canvas for capture -->
+        <canvas id="capture-canvas" style="display:none;"></canvas>
+
+        <!-- Frame overlay -->
+        <div class="camera-overlay">
+          <div class="camera-frame">
+            <div class="camera-frame-corner tl"></div>
+            <div class="camera-frame-corner tr"></div>
+            <div class="camera-frame-corner bl"></div>
+            <div class="camera-frame-corner br"></div>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="camera-controls">
+          <!-- Gallery -->
+          <button class="camera-side-btn" onclick="openGalleryFromCamera()">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </button>
+
+          <!-- Shutter -->
+          <button class="shutter-btn" onclick="takePhoto()" id="shutter-btn">
+            <div class="shutter-btn-inner"></div>
+          </button>
+
+          <!-- Flip camera -->
+          <button class="camera-side-btn" onclick="flipCamera()">
+            <svg viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hidden file input for gallery -->
+      <input type="file" id="gallery-input" accept="image/*" style="display:none;" onchange="handleGallerySelect(event)" />
+    </div>
+
+    <!-- ===== ANCHOR SELECTION SCREEN ===== -->
+    <div id="screen-anchor" class="screen">
+      <div style="background:var(--bg-2);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-icon btn-secondary" onclick="cancelAnchor()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div>
+          <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;letter-spacing:0.06em;">Select Anchor Point</div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Tap where this photo was taken</div>
+        </div>
+      </div>
+
+      <div class="anchor-screen">
+        <!-- Photo preview with anchor grid -->
+        <div class="anchor-preview" id="anchor-preview-container">
+          <img id="anchor-preview-img" src="" alt="Captured photo" />
+          <div class="anchor-grid-overlay" id="anchor-grid"></div>
+        </div>
+
+        <!-- Info & actions -->
+        <div class="anchor-info-panel">
+          <div id="anchor-selected-display" class="anchor-selected-info">
+            <div class="dot" style="background:var(--text-muted);box-shadow:none;"></div>
+            <div>
+              <div class="anchor-pos-label" id="anchor-pos-text" style="color:var(--text-muted);">No anchor selected</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Tap a grid point on the photo above</div>
+            </div>
+          </div>
+
+          <!-- Anchor position labels guide -->
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;">
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP-LEFT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP-RIGHT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">LEFT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">CENTER</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">RIGHT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOT-LEFT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOTTOM</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOT-RIGHT</div>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea class="notes-area" id="anchor-notes" placeholder="e.g. Water pipe runs horizontally, 12 inches from floor…"></textarea>
+          </div>
+
+          <button class="btn btn-primary btn-full" id="save-capture-btn" onclick="saveCapture()" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save Capture
+          </button>
+          <button class="btn btn-secondary btn-full" onclick="cancelAnchor()">Discard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== AR VIEW SCREEN ===== -->
+    <div id="screen-ar" class="screen">
+      <div class="ar-screen" style="flex:1;">
+        <!-- Top HUD -->
+        <div class="ar-overlay-ui">
+          <div class="ar-top-hud">
+            <button class="camera-side-btn" onclick="closeARScreen()">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="ar-status">
+              <div class="ar-status-dot"></div>
+              AR MODE
+            </div>
+            <button class="camera-side-btn" id="ar-opacity-btn" onclick="cycleOpacity()">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20"/></svg>
+            </button>
+          </div>
+
+          <!-- Bottom HUD -->
+          <div class="ar-bottom-hud">
+            <!-- Alignment meter -->
+            <div class="ar-alignment-meter">
+              <div class="ar-meter-label">
+                <span>Alignment Score</span>
+                <span id="ar-score-label">–</span>
+              </div>
+              <div class="ar-meter-bar">
+                <div class="ar-meter-fill" id="ar-meter" style="width:0%;"></div>
+              </div>
+            </div>
+
+            <!-- Reference captures row -->
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Reference captures</div>
+            <div class="ar-captures-row" id="ar-captures-row">
+              <div style="font-family:var(--font-mono);font-size:0.7rem;color:rgba(255,255,255,0.3);padding:8px;white-space:nowrap;">No captures in this scene</div>
+            </div>
+
+            <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <button class="btn btn-secondary" onclick="toggleAROverlay()" id="ar-toggle-btn" style="font-size:0.8rem;padding:10px;">
+                Hide Overlay
+              </button>
+              <button class="btn btn-amber" onclick="openCameraFromAR()" style="font-size:0.8rem;padding:10px;color:#000;">
+                + Capture
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Camera feed -->
+        <video id="ar-video" autoplay playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>
+
+        <!-- AR canvas overlay -->
+        <canvas id="ar-canvas" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;"></canvas>
+      </div>
+    </div>
+
+    <!-- ===== PROFILE SCREEN ===== -->
+    <div id="screen-profile" class="screen">
+      <div class="profile-screen">
+
+        <!-- User info -->
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div class="profile-avatar" id="profile-avatar">?</div>
+          <div>
+            <div class="profile-name" id="profile-name">Loading…</div>
+            <div class="profile-email" id="profile-email">…</div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stat-row">
+          <div class="stat-tile">
+            <div class="stat-num" id="stat-scenes">–</div>
+            <div class="stat-lbl">Scenes</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-num" id="stat-captures">–</div>
+            <div class="stat-lbl">Captures</div>
+          </div>
+          <div class="stat-tile">
+            <div class="stat-num" id="stat-strikes">$0</div>
+            <div class="stat-lbl">Saved</div>
+          </div>
+        </div>
+
+        <!-- Settings -->
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:10px;">Settings</div>
+          <div class="settings-list">
+            <div class="settings-item" onclick="toast('Camera settings coming soon', 'info')">
+              <div class="settings-item-left">
+                <div class="settings-item-icon"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+                <span class="settings-item-label">Camera Resolution</span>
+              </div>
+              <div class="settings-item-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-item" onclick="toast('Overlay settings coming soon', 'info')">
+              <div class="settings-item-left">
+                <div class="settings-item-icon"><svg viewBox="0 0 24 24"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/></svg></div>
+                <span class="settings-item-label">AR Overlay Opacity</span>
+              </div>
+              <div class="settings-item-value" id="opacity-setting-val">50%</div>
+              <div class="settings-item-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-item" onclick="exportData()">
+              <div class="settings-item-left">
+                <div class="settings-item-icon"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+                <span class="settings-item-label">Export Scene Data</span>
+              </div>
+              <div class="settings-item-arrow"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account -->
+        <div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:10px;">Account</div>
+          <div class="settings-list">
+            <div class="settings-item" onclick="confirmSignOut()">
+              <div class="settings-item-left">
+                <div class="settings-item-icon" style="color:var(--red);"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+                <span class="settings-item-label" style="color:var(--red);">Sign Out</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);text-align:center;letter-spacing:0.1em;text-transform:uppercase;">
+          BLEprint v1.0.0 MVP — Feb 2026
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-item active" id="nav-scenes" onclick="navTo('scenes')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Scenes
+    </button>
+    <button class="nav-item" id="nav-profile" onclick="navTo('profile')">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </button>
+  </nav>
+</div>
+
+<!-- ── Modals ───────────────────────────────────────────────── -->
+
+<!-- Create Scene Modal -->
+<div id="modal-create-scene" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-title">New Scene</div>
+    <div class="modal-subtitle">Create a new documentation area</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="form-group">
+        <label class="form-label">Scene Name *</label>
+        <input class="form-input" id="new-scene-name" placeholder="e.g. North Wall Level 2" maxlength="60" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="new-scene-desc" placeholder="e.g. MEP systems behind west drywall panel" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location / Zone</label>
+        <input class="form-input" id="new-scene-location" placeholder="e.g. Building A, Floor 3" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-create-scene')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="create-scene-btn" onclick="createScene()">
+        <span>Create Scene</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Scene Modal -->
+<div id="modal-edit-scene" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-title">Edit Scene</div>
+    <div class="modal-subtitle">Update scene information</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="form-group">
+        <label class="form-label">Scene Name *</label>
+        <input class="form-input" id="edit-scene-name" maxlength="60" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="edit-scene-desc" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location / Zone</label>
+        <input class="form-input" id="edit-scene-location" />
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-edit-scene')">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="update-scene-btn" onclick="updateScene()">
+        <span>Save Changes</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div id="modal-confirm" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-title" id="confirm-title">Confirm</div>
+    <div class="modal-subtitle" id="confirm-message">Are you sure?</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-danger" style="flex:2;background:var(--red);color:#fff;border:none;" id="confirm-ok-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Firebase & App JS ─────────────────────────────────────── -->
+<script src="firebase-config.js"></script>
+<script type="module">
+import { initializeApp }              from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc,
+         query, where, orderBy, serverTimestamp, getDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getStorage, ref, uploadString, getDownloadURL, deleteObject }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
+
+// ── Init Firebase ──────────────────────────────────────────────
+const app     = initializeApp(window.FIREBASE_CONFIG);
+const auth    = getAuth(app);
+const db      = getFirestore(app);
+const storage = getStorage(app);
+
+// ── App State ──────────────────────────────────────────────────
+let currentUser     = null;
+let currentScene    = null;
+let scenes          = [];
+let currentCaptures = [];
+let capturedImageDataURL = null;
+let selectedAnchor  = null;
+let cameraStream    = null;
+let arStream        = null;
+let arOverlayVisible = true;
+let arOpacity       = 0.5;
+let arOpacityStep   = [0.3, 0.5, 0.7, 1.0];
+let arOpacityIndex  = 1;
+let activeARCapture = null;
+let arAnimFrame     = null;
+let currentFacingMode = 'environment';
+let viewingCapture  = null;
+
+// ── Toast ──────────────────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.classList.add('fadeout'); setTimeout(() => t.remove(), 300); }, 3500);
+}
+window.toast = toast;
+
+// ── Auth ───────────────────────────────────────────────────────
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { window.location.href = 'index.html'; return; }
+  currentUser = user;
+  document.getElementById('app-loading').classList.add('hidden');
+  document.getElementById('app-shell').classList.remove('hidden');
+  populateProfile();
+  await loadScenes();
+});
+
+function populateProfile() {
+  const name  = currentUser.displayName || currentUser.email.split('@')[0];
+  const email = currentUser.email;
+  document.getElementById('profile-name').textContent  = name;
+  document.getElementById('profile-email').textContent = email;
+  document.getElementById('header-user').textContent   = name;
+  const initial = name.charAt(0).toUpperCase();
+  document.getElementById('profile-avatar').textContent = initial;
+}
+
+// ── Navigation ─────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+
+  // Nav highlight
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const navId = { scenes: 'scenes', detail: 'scenes', camera: null, anchor: null, ar: null, profile: 'profile' }[id];
+  if (navId) document.getElementById('nav-' + navId)?.classList.add('active');
+
+  // Bottom nav visibility
+  const hideNav = ['camera', 'anchor', 'ar'].includes(id);
+  document.getElementById('bottom-nav').style.display = hideNav ? 'none' : 'flex';
+
+  // Breadcrumb
+  updateBreadcrumb(id);
+}
+
+function updateBreadcrumb(id) {
+  const bc = document.getElementById('breadcrumb');
+  if (id === 'scenes')  bc.innerHTML = `<span class="active">Scenes</span>`;
+  if (id === 'detail')  bc.innerHTML = `<span class="crumb" onclick="goToScenes()" style="cursor:pointer;">Scenes</span><span class="sep">›</span><span class="active">${escHtml(currentScene?.name || '')}</span>`;
+  if (id === 'camera')  bc.innerHTML = `<span class="crumb" onclick="closeCameraScreen()" style="cursor:pointer;">${escHtml(currentScene?.name || '')}</span><span class="sep">›</span><span class="active">Camera</span>`;
+  if (id === 'anchor')  bc.innerHTML = `<span class="active">Anchor Point</span>`;
+  if (id === 'ar')      bc.innerHTML = `<span class="crumb" onclick="closeARScreen()" style="cursor:pointer;">${escHtml(currentScene?.name || '')}</span><span class="sep">›</span><span class="active">AR View</span>`;
+  if (id === 'profile') bc.innerHTML = `<span class="active">Profile</span>`;
+}
+
+window.navTo = (tab) => {
+  if (tab === 'scenes')  { goToScenes(); }
+  if (tab === 'profile') { showScreen('profile'); updateProfileStats(); }
+};
+
+window.goToScenes = () => {
+  stopCamera(); stopAR();
+  showScreen('scenes');
+};
+
+// ── Scenes CRUD ────────────────────────────────────────────────
+async function loadScenes() {
+  try {
+    const q = query(
+      collection(db, 'scenes'),
+      where('uid', '==', currentUser.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const snap = await getDocs(q);
+    scenes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderScenesList();
+    updateSceneSubtitle();
+  } catch (err) {
+    console.error(err);
+    toast('Failed to load scenes', 'error');
+  }
+}
+
+function updateSceneSubtitle() {
+  const el = document.getElementById('scenes-subtitle');
+  if (scenes.length === 0) {
+    el.textContent = 'Create your first scene to get started';
+  } else {
+    el.textContent = `${scenes.length} scene${scenes.length !== 1 ? 's' : ''} · tap to view`;
+  }
+}
+
+function renderScenesList() {
+  const container = document.getElementById('scenes-list');
+  if (scenes.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding-top:48px;">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="empty-title">No Scenes Yet</div>
+        <div class="empty-desc">Create a scene for each wall or area where you need to document MEP infrastructure.</div>
+        <button class="btn btn-primary" onclick="openCreateSceneModal()" style="margin-top:8px;">Create First Scene</button>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = scenes.map(scene => {
+    const thumb  = scene.thumbnailURL || '';
+    const count  = scene.captureCount || 0;
+    const date   = scene.createdAt?.toDate ? scene.createdAt.toDate().toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '–';
+    return `
+      <div class="scene-card" onclick="openScene('${scene.id}')">
+        <div class="scene-thumb">
+          ${thumb
+            ? `<img src="${escHtml(thumb)}" alt="${escHtml(scene.name)}" loading="lazy" />`
+            : `<div class="scene-thumb-placeholder">
+                <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                <span>No captures yet</span>
+               </div>`
+          }
+        </div>
+        <div class="scene-info">
+          <div class="scene-name">${escHtml(scene.name)}</div>
+          ${scene.location ? `<div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted);">${escHtml(scene.location)}</div>` : ''}
+          <div class="scene-meta">
+            <div class="scene-stats">
+              <span>${count} capture${count !== 1 ? 's' : ''}</span>
+              <span>·</span>
+              <span>${date}</span>
+            </div>
+            ${scene.description ? `<span class="badge badge-blue">${escHtml(scene.description.slice(0,20))}${scene.description.length>20?'…':''}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.openScene = async (id) => {
+  currentScene = scenes.find(s => s.id === id);
+  if (!currentScene) return;
+  document.getElementById('detail-title').textContent = currentScene.name;
+  document.getElementById('detail-desc').textContent  = currentScene.description || currentScene.location || 'Tap + Capture to document this area';
+  document.getElementById('camera-scene-name').textContent = currentScene.name;
+  showScreen('detail');
+  await loadCaptures();
+};
+
+window.openCreateSceneModal = () => openModal('modal-create-scene');
+
+window.createScene = async () => {
+  const name     = document.getElementById('new-scene-name').value.trim();
+  const desc     = document.getElementById('new-scene-desc').value.trim();
+  const location = document.getElementById('new-scene-location').value.trim();
+  if (!name) { toast('Please enter a scene name', 'warn'); return; }
+
+  const btn = document.getElementById('create-scene-btn');
+  btn.innerHTML = '<div class="spinner"></div>';
+  btn.disabled  = true;
+
+  try {
+    const docRef = await addDoc(collection(db, 'scenes'), {
+      uid:           currentUser.uid,
+      name,
+      description:   desc,
+      location,
+      captureCount:  0,
+      thumbnailURL:  '',
+      createdAt:     serverTimestamp(),
+      updatedAt:     serverTimestamp(),
+    });
+    closeModal('modal-create-scene');
+    document.getElementById('new-scene-name').value     = '';
+    document.getElementById('new-scene-desc').value     = '';
+    document.getElementById('new-scene-location').value = '';
+    toast('Scene created!', 'success');
+    await loadScenes();
+    // Open the new scene
+    const newScene = { id: docRef.id, name, description: desc, location, captureCount: 0, thumbnailURL: '' };
+    scenes.unshift(newScene);
+    openScene(docRef.id);
+  } catch (err) {
+    console.error(err);
+    toast('Failed to create scene', 'error');
+  } finally {
+    btn.innerHTML = '<span>Create Scene</span>';
+    btn.disabled  = false;
+  }
+};
+
+window.openEditSceneModal = () => {
+  if (!currentScene) return;
+  document.getElementById('edit-scene-name').value     = currentScene.name || '';
+  document.getElementById('edit-scene-desc').value     = currentScene.description || '';
+  document.getElementById('edit-scene-location').value = currentScene.location || '';
+  openModal('modal-edit-scene');
+};
+
+window.updateScene = async () => {
+  const name     = document.getElementById('edit-scene-name').value.trim();
+  const desc     = document.getElementById('edit-scene-desc').value.trim();
+  const location = document.getElementById('edit-scene-location').value.trim();
+  if (!name) { toast('Scene name is required', 'warn'); return; }
+
+  const btn = document.getElementById('update-scene-btn');
+  btn.innerHTML = '<div class="spinner"></div>';
+  btn.disabled  = true;
+
+  try {
+    await updateDoc(doc(db, 'scenes', currentScene.id), { name, description: desc, location, updatedAt: serverTimestamp() });
+    currentScene.name        = name;
+    currentScene.description = desc;
+    currentScene.location    = location;
+    document.getElementById('detail-title').textContent = name;
+    document.getElementById('detail-desc').textContent  = desc || location || 'Tap + Capture to document this area';
+    updateBreadcrumb('detail');
+    closeModal('modal-edit-scene');
+    toast('Scene updated!', 'success');
+    await loadScenes();
+  } catch (err) {
+    toast('Failed to update scene', 'error');
+  } finally {
+    btn.innerHTML = '<span>Save Changes</span>';
+    btn.disabled  = false;
+  }
+};
+
+window.deleteCurrentScene = () => {
+  openConfirm(
+    'Delete Scene',
+    `Delete "${currentScene?.name}"? This will permanently remove all captures. This cannot be undone.`,
+    async () => {
+      try {
+        // Delete captures first
+        const q    = query(collection(db, 'captures'), where('sceneId', '==', currentScene.id));
+        const snap = await getDocs(q);
+        for (const d of snap.docs) {
+          const data = d.data();
+          if (data.storagePath) {
+            try { await deleteObject(ref(storage, data.storagePath)); } catch {}
+          }
+          await deleteDoc(d.ref);
+        }
+        await deleteDoc(doc(db, 'scenes', currentScene.id));
+        toast('Scene deleted', 'info');
+        await loadScenes();
+        goToScenes();
+      } catch (err) {
+        toast('Failed to delete scene', 'error');
+      }
+    }
+  );
+};
+
+// ── Captures ────────────────────────────────────────────────────
+async function loadCaptures() {
+  try {
+    const q    = query(collection(db, 'captures'), where('sceneId', '==', currentScene.id), orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    currentCaptures = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCaptures();
+  } catch (err) {
+    console.error(err);
+    toast('Failed to load captures', 'error');
+  }
+}
+
+function renderCaptures() {
+  const grid    = document.getElementById('captures-grid');
+  const empty   = document.getElementById('captures-empty');
+  const counter = document.getElementById('captures-count');
+  counter.textContent = currentCaptures.length;
+
+  if (currentCaptures.length === 0) {
+    grid.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  empty.classList.add('hidden');
+  grid.innerHTML = currentCaptures.map((cap, i) => `
+    <div class="capture-thumb" onclick="viewCapture(${i})">
+      <img src="${escHtml(cap.imageURL)}" alt="Capture ${i+1}" loading="lazy" />
+      ${cap.anchor ? `<div class="capture-anchor-badge">${escHtml(cap.anchor)}</div>` : ''}
+      ${cap.notes  ? `<div class="capture-notes">${escHtml(cap.notes.slice(0,40))}${cap.notes.length>40?'…':''}</div>` : ''}
+    </div>`
+  ).join('');
+}
+
+window.viewCapture = (index) => {
+  const cap = currentCaptures[index];
+  if (!cap) return;
+  viewingCapture = cap;
+  document.getElementById('fullscreen-img').src    = cap.imageURL;
+  document.getElementById('fullscreen-title').textContent = `Capture ${index + 1}`;
+  document.getElementById('fullscreen-anchor').textContent = cap.anchor ? `Anchor: ${cap.anchor}` : '';
+  document.getElementById('fullscreen-notes').textContent  = cap.notes  || 'No notes added.';
+  const date = cap.createdAt?.toDate ? cap.createdAt.toDate().toLocaleString() : '';
+  document.getElementById('fullscreen-date').textContent = date;
+  document.getElementById('fullscreen-view').classList.remove('hidden');
+};
+
+window.closeFullscreen = () => {
+  document.getElementById('fullscreen-view').classList.add('hidden');
+  viewingCapture = null;
+};
+
+window.deleteCurrentCapture = async () => {
+  if (!viewingCapture) return;
+  openConfirm('Delete Capture', 'Delete this capture? This cannot be undone.', async () => {
+    try {
+      if (viewingCapture.storagePath) {
+        try { await deleteObject(ref(storage, viewingCapture.storagePath)); } catch {}
+      }
+      await deleteDoc(doc(db, 'captures', viewingCapture.id));
+      // Update scene count
+      const newCount = Math.max(0, (currentScene.captureCount || 1) - 1);
+      await updateDoc(doc(db, 'scenes', currentScene.id), { captureCount: newCount });
+      currentScene.captureCount = newCount;
+      closeFullscreen();
+      await loadCaptures();
+      toast('Capture deleted', 'info');
+    } catch (err) {
+      toast('Failed to delete capture', 'error');
+    }
+  });
+};
+
+// ── Camera ──────────────────────────────────────────────────────
+window.openCameraScreen = () => {
+  showScreen('camera');
+  startCamera();
+};
+
+window.closeCameraScreen = () => {
+  stopCamera();
+  showScreen('detail');
+};
+
+async function startCamera(facingMode) {
+  if (!facingMode) facingMode = currentFacingMode;
+  try {
+    if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); }
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    const video = document.getElementById('camera-video');
+    video.srcObject = cameraStream;
+    currentFacingMode = facingMode;
+  } catch (err) {
+    toast('Camera access denied or unavailable', 'error');
+    console.error(err);
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const v = document.getElementById('camera-video');
+  if (v) v.srcObject = null;
+}
+
+window.flipCamera = () => {
+  const next = currentFacingMode === 'environment' ? 'user' : 'environment';
+  startCamera(next);
+};
+
+window.takePhoto = () => {
+  const video  = document.getElementById('camera-video');
+  const canvas = document.getElementById('capture-canvas');
+  if (!video.videoWidth) { toast('Camera not ready', 'warn'); return; }
+
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  capturedImageDataURL = canvas.toDataURL('image/jpeg', 0.85);
+
+  stopCamera();
+  openAnchorScreen(capturedImageDataURL);
+};
+
+window.openGalleryFromCamera = () => {
+  document.getElementById('gallery-input').click();
+};
+
+window.openGalleryPicker = () => {
+  document.getElementById('gallery-input').click();
+};
+
+window.handleGallerySelect = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    capturedImageDataURL = ev.target.result;
+    stopCamera();
+    openAnchorScreen(capturedImageDataURL);
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+};
+
+// ── Anchor Selection ────────────────────────────────────────────
+const ANCHOR_NAMES = [
+  'TOP-LEFT',   'TOP',    'TOP-RIGHT',
+  'LEFT',       'CENTER', 'RIGHT',
+  'BOTTOM-LEFT','BOTTOM', 'BOTTOM-RIGHT'
+];
+
+function openAnchorScreen(imgDataURL) {
+  selectedAnchor = null;
+  document.getElementById('anchor-preview-img').src = imgDataURL;
+  document.getElementById('save-capture-btn').disabled = true;
+  document.getElementById('anchor-pos-text').textContent = 'No anchor selected';
+  document.getElementById('anchor-pos-text').style.color = 'var(--text-muted)';
+  document.getElementById('anchor-notes').value = '';
+
+  // Build grid
+  const grid = document.getElementById('anchor-grid');
+  grid.innerHTML = ANCHOR_NAMES.map((name, i) => `
+    <div class="anchor-point" id="ap-${i}" onclick="selectAnchor(${i}, '${name}')">
+      <div class="anchor-dot"></div>
+    </div>`
+  ).join('');
+
+  showScreen('anchor');
+}
+
+window.selectAnchor = (idx, name) => {
+  selectedAnchor = name;
+  // Update grid
+  document.querySelectorAll('.anchor-point').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  // Update display
+  document.getElementById('anchor-pos-text').textContent  = name;
+  document.getElementById('anchor-pos-text').style.color  = 'var(--blue)';
+  document.getElementById('save-capture-btn').disabled = false;
+};
+
+window.cancelAnchor = () => {
+  selectedAnchor = null;
+  capturedImageDataURL = null;
+  // Go back to where we came from
+  if (cameraStream) stopCamera();
+  showScreen('detail');
+};
+
+window.saveCapture = async () => {
+  if (!selectedAnchor || !capturedImageDataURL) { toast('Please select an anchor point', 'warn'); return; }
+
+  const btn = document.getElementById('save-capture-btn');
+  btn.innerHTML = '<div class="spinner"></div> Saving…';
+  btn.disabled  = true;
+
+  const notes = document.getElementById('anchor-notes').value.trim();
+
+  try {
+    // Upload to Firebase Storage
+    const path     = `captures/${currentUser.uid}/${currentScene.id}/${Date.now()}.jpg`;
+    const storRef  = ref(storage, path);
+    await uploadString(storRef, capturedImageDataURL, 'data_url');
+    const imageURL = await getDownloadURL(storRef);
+
+    // Save to Firestore
+    await addDoc(collection(db, 'captures'), {
+      uid:         currentUser.uid,
+      sceneId:     currentScene.id,
+      imageURL,
+      storagePath: path,
+      anchor:      selectedAnchor,
+      notes,
+      createdAt:   serverTimestamp(),
+    });
+
+    // Update scene count + thumbnail
+    const newCount = (currentScene.captureCount || 0) + 1;
+    await updateDoc(doc(db, 'scenes', currentScene.id), {
+      captureCount: newCount,
+      thumbnailURL: imageURL,
+      updatedAt:    serverTimestamp(),
+    });
+    currentScene.captureCount = newCount;
+    currentScene.thumbnailURL = imageURL;
+
+    toast('Capture saved!', 'success');
+    selectedAnchor = null;
+    capturedImageDataURL = null;
+    showScreen('detail');
+    await loadCaptures();
+    await loadScenes();
+
+  } catch (err) {
+    console.error(err);
+    toast('Failed to save capture. Check Firebase Storage is enabled.', 'error');
+  } finally {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Capture';
+    btn.disabled = false;
+  }
+};
+
+// ── AR View ─────────────────────────────────────────────────────
+window.openARScreen = async () => {
+  if (!currentScene) return;
+  showScreen('ar');
+  await startAR();
+  loadARCaptures();
+};
+
+window.closeARScreen = () => {
+  stopAR();
+  showScreen('detail');
+};
+
+async function startAR() {
+  try {
+    arStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    const video = document.getElementById('ar-video');
+    video.srcObject = arStream;
+    startARRender();
+  } catch (err) {
+    toast('Camera access required for AR mode', 'error');
+  }
+}
+
+function stopAR() {
+  if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
+  if (arAnimFrame) { cancelAnimationFrame(arAnimFrame); arAnimFrame = null; }
+  const v = document.getElementById('ar-video');
+  if (v) v.srcObject = null;
+}
+
+function loadARCaptures() {
+  const row = document.getElementById('ar-captures-row');
+  if (currentCaptures.length === 0) {
+    row.innerHTML = `<div style="font-family:var(--font-mono);font-size:0.7rem;color:rgba(255,255,255,0.3);padding:8px;white-space:nowrap;">No captures in this scene</div>`;
+    return;
+  }
+  row.innerHTML = currentCaptures.map((cap, i) => `
+    <button class="ar-capture-btn ${i === 0 ? 'active' : ''}" onclick="selectARCapture(${i})" id="ar-cap-${i}">
+      <img src="${escHtml(cap.imageURL)}" alt="${escHtml(cap.anchor || '')}" loading="lazy" />
+    </button>`
+  ).join('');
+
+  // Auto-select first
+  if (currentCaptures.length > 0) {
+    activeARCapture = currentCaptures[0];
+  }
+}
+
+window.selectARCapture = (i) => {
+  document.querySelectorAll('.ar-capture-btn').forEach((b, j) => b.classList.toggle('active', j === i));
+  activeARCapture = currentCaptures[i];
+};
+
+function startARRender() {
+  const canvas = document.getElementById('ar-canvas');
+  const video  = document.getElementById('ar-video');
+  const ctx    = canvas.getContext('2d');
+
+  let overlayImg = null;
+  let lastURL    = null;
+
+  function render() {
+    canvas.width  = video.clientWidth  || canvas.offsetWidth;
+    canvas.height = video.clientHeight || canvas.offsetHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (arOverlayVisible && activeARCapture) {
+      const url = activeARCapture.imageURL;
+      if (url !== lastURL) {
+        lastURL    = url;
+        overlayImg = new Image();
+        overlayImg.crossOrigin = 'anonymous';
+        overlayImg.src = url;
+      }
+
+      if (overlayImg && overlayImg.complete && overlayImg.naturalWidth > 0) {
+        // Calculate alignment score based on how well the current view could match
+        const score = calculateAlignmentScore(video, overlayImg);
+        updateAlignmentUI(score);
+
+        ctx.globalAlpha = arOpacity;
+        ctx.drawImage(overlayImg, 0, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+
+        // Draw anchor indicator
+        if (activeARCapture.anchor) {
+          drawAnchorIndicator(ctx, activeARCapture.anchor, canvas.width, canvas.height);
+        }
+      }
+    } else {
+      updateAlignmentUI(0);
+    }
+
+    arAnimFrame = requestAnimationFrame(render);
+  }
+
+  render();
+}
+
+function calculateAlignmentScore(video, img) {
+  // Heuristic: score based on aspect ratio similarity
+  const vAspect = video.videoWidth  / (video.videoHeight  || 1);
+  const iAspect = img.naturalWidth  / (img.naturalHeight  || 1);
+  const ratio   = Math.min(vAspect, iAspect) / Math.max(vAspect, iAspect);
+  return Math.round(ratio * 100);
+}
+
+function updateAlignmentUI(score) {
+  const meter = document.getElementById('ar-meter');
+  const label = document.getElementById('ar-score-label');
+  if (meter) { meter.style.width = score + '%'; }
+  if (label) { label.textContent = score > 0 ? score + '%' : '–'; }
+}
+
+function drawAnchorIndicator(ctx, anchor, w, h) {
+  const positions = {
+    'TOP-LEFT':     { x: 0.15, y: 0.15 },
+    'TOP':          { x: 0.5,  y: 0.1  },
+    'TOP-RIGHT':    { x: 0.85, y: 0.15 },
+    'LEFT':         { x: 0.1,  y: 0.5  },
+    'CENTER':       { x: 0.5,  y: 0.5  },
+    'RIGHT':        { x: 0.9,  y: 0.5  },
+    'BOTTOM-LEFT':  { x: 0.15, y: 0.85 },
+    'BOTTOM':       { x: 0.5,  y: 0.9  },
+    'BOTTOM-RIGHT': { x: 0.85, y: 0.85 },
+  };
+  const pos = positions[anchor];
+  if (!pos) return;
+  const px = pos.x * w;
+  const py = pos.y * h;
+
+  ctx.save();
+  ctx.globalAlpha = 0.9;
+
+  // Outer ring
+  ctx.beginPath();
+  ctx.arc(px, py, 18, 0, Math.PI * 2);
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth   = 2;
+  ctx.stroke();
+
+  // Inner dot
+  ctx.beginPath();
+  ctx.arc(px, py, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#f59e0b';
+  ctx.fill();
+
+  // Crosshair lines
+  ctx.beginPath();
+  ctx.moveTo(px - 26, py); ctx.lineTo(px - 20, py);
+  ctx.moveTo(px + 20, py); ctx.lineTo(px + 26, py);
+  ctx.moveTo(px, py - 26); ctx.lineTo(px, py - 20);
+  ctx.moveTo(px, py + 20); ctx.lineTo(px, py + 26);
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+
+  // Label
+  ctx.font      = '500 11px "IBM Plex Mono", monospace';
+  ctx.fillStyle = '#f59e0b';
+  ctx.textAlign = 'center';
+  ctx.fillText(anchor, px, py + 34);
+
+  ctx.restore();
+}
+
+window.toggleAROverlay = () => {
+  arOverlayVisible = !arOverlayVisible;
+  document.getElementById('ar-toggle-btn').textContent = arOverlayVisible ? 'Hide Overlay' : 'Show Overlay';
+};
+
+window.cycleOpacity = () => {
+  arOpacityIndex = (arOpacityIndex + 1) % arOpacityStep.length;
+  arOpacity = arOpacityStep[arOpacityIndex];
+  document.getElementById('opacity-setting-val').textContent = Math.round(arOpacity * 100) + '%';
+  toast(`Overlay opacity: ${Math.round(arOpacity * 100)}%`, 'info');
+};
+
+window.openCameraFromAR = () => {
+  stopAR();
+  showScreen('camera');
+  startCamera();
+};
+
+// ── Profile / Stats ─────────────────────────────────────────────
+async function updateProfileStats() {
+  try {
+    const q    = query(collection(db, 'scenes'), where('uid', '==', currentUser.uid));
+    const snap = await getDocs(q);
+    const sceneCount   = snap.docs.length;
+    let   captureTotal = 0;
+    snap.docs.forEach(d => { captureTotal += d.data().captureCount || 0; });
+    document.getElementById('stat-scenes').textContent   = sceneCount;
+    document.getElementById('stat-captures').textContent = captureTotal;
+    // Hypothetical savings: each capture helps prevent strikes
+    const saved = Math.floor(captureTotal * 0.15 * 56000 / 1000);
+    document.getElementById('stat-strikes').textContent = saved > 0 ? `$${saved}K` : '$0';
+  } catch {}
+}
+
+window.confirmSignOut = () => {
+  openConfirm('Sign Out', 'Are you sure you want to sign out?', async () => {
+    stopCamera();
+    stopAR();
+    await signOut(auth);
+    window.location.href = 'index.html';
+  });
+};
+
+window.exportData = () => {
+  const data = { scenes, exportedAt: new Date().toISOString(), user: currentUser.email };
+  const blob  = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url   = URL.createObjectURL(blob);
+  const a     = document.createElement('a');
+  a.href = url; a.download = 'bleprint-export.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Data exported!', 'success');
+};
+
+// ── Modal helpers ───────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+window.openModal  = openModal;
+window.closeModal = closeModal;
+
+// Click outside to close
+document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) closeModal(backdrop.id);
+  });
+});
+
+let confirmCallback = null;
+function openConfirm(title, msg, onOk) {
+  document.getElementById('confirm-title').textContent   = title;
+  document.getElementById('confirm-message').textContent = msg;
+  confirmCallback = onOk;
+  openModal('modal-confirm');
+}
+document.getElementById('confirm-ok-btn').onclick = () => {
+  closeModal('modal-confirm');
+  if (confirmCallback) { confirmCallback(); confirmCallback = null; }
+};
+
+// ── Utility ─────────────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Handle back button on mobile
+window.addEventListener('popstate', () => {
+  const active = document.querySelector('.screen.active')?.id;
+  if (active === 'screen-detail')  goToScenes();
+  else if (active === 'screen-camera')  closeCameraScreen();
+  else if (active === 'screen-anchor')  cancelAnchor();
+  else if (active === 'screen-ar')      closeARScreen();
+});
+</script>
+</body>
+</html>
