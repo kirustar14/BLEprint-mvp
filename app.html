@@ -859,9 +859,9 @@ function extractTemplate() {
 function setARHUD(state, conf){
   const dot=document.getElementById('ar-lock-dot'), txt=document.getElementById('ar-status-text'), hint=document.getElementById('ar-hint');
   if(state==='loading'){ dot.style.background='var(--amber)'; txt.textContent='LOADING'; if(hint)hint.textContent='Loading reference image…'; }
-  else if(state==='searching'){ dot.style.background='var(--amber)'; txt.textContent='SEARCHING'; if(hint)hint.textContent='Point camera at the wall — align with the amber box'; }
-  else if(state==='low'){ dot.style.background='#f59e0b'; txt.textContent='LOW MATCH'; if(hint)hint.textContent='Move closer and match the angle of the original photo'; }
-  else if(state==='locked'){ dot.style.background='var(--green)'; txt.textContent='LOCKED ✓'; if(hint)hint.textContent='Overlay aligned — see MEP infrastructure through the wall'; }
+  else if(state==='searching'){ dot.style.background='var(--amber)'; txt.textContent='SEARCHING'; if(hint)hint.textContent='Point camera at the wall — find the anchor region to begin overlay'; }
+  else if(state==='low'){ dot.style.background='#f59e0b'; txt.textContent='ALIGNING'; if(hint)hint.textContent='Getting closer — align the yellow box with the anchor region'; }
+  else if(state==='locked'){ dot.style.background='var(--green)'; txt.textContent='LOCKED ✓'; if(hint)hint.textContent='Perfect alignment — seeing through the wall'; }
 }
 
 /* ── Main AR render loop ─────────────────────────────────── */
@@ -878,6 +878,8 @@ function runARLoop(){
   const sctx=scratch.getContext('2d',{willReadFrequently:true});
 
   let frameN=0;
+  let lastGoodConf = 0;
+  const CONFIDENCE_THRESHOLD = 0.45; // Minimum confidence to show overlay
 
   function frame(){
     arRaf=requestAnimationFrame(frame);
@@ -888,35 +890,48 @@ function runARLoop(){
     if(!arRefReady||!arRefImg||!arTemplateData){ setARHUD('loading'); return; }
 
     // Template matching every other frame
-    let conf=0, tTx=sTx, tTy=sTy, tScale=sScale;
+    let conf=lastGoodConf, tTx=sTx, tTy=sTy, tScale=sScale;
     frameN++;
     
     if(frameN%2===0 && video.readyState>=2){
       const matchResult = matchTemplate(video, arTemplateData, scratch, sctx, cw, ch);
-      if(matchResult){
-        tTx=matchResult.tx; tTy=matchResult.ty; tScale=matchResult.scale; conf=matchResult.conf;
+      if(matchResult && matchResult.conf > 0.25){ // Only update on reasonable matches
+        tTx=matchResult.tx; 
+        tTy=matchResult.ty; 
+        tScale=matchResult.scale; 
+        conf=matchResult.conf;
+        lastGoodConf=conf;
+      } else {
+        // Decay confidence if no good match
+        lastGoodConf = Math.max(0, lastGoodConf * 0.95);
+        conf = lastGoodConf;
       }
     } else {
-      // Hold previous confidence
-      conf=parseFloat(document.getElementById('ar-score-label').textContent||'0')/100||0;
+      conf = lastGoodConf;
     }
 
-    // Lerp towards target transform
-    sTx    += (tTx    - sTx)    * LERP;
-    sTy    += (tTy    - sTy)    * LERP;
-    sScale += (tScale - sScale) * LERP;
+    // Only lerp if we have good confidence
+    if(conf > CONFIDENCE_THRESHOLD){
+      sTx    += (tTx    - sTx)    * LERP;
+      sTy    += (tTy    - sTy)    * LERP;
+      sScale += (tScale - sScale) * LERP;
+    }
 
     // Update HUD
     const pct=Math.round(conf*100);
     document.getElementById('ar-meter').style.width=pct+'%';
     document.getElementById('ar-score-label').textContent=pct>0?pct+'%':'–';
-    document.getElementById('ar-score-label').style.color=conf>0.65?'var(--green)':conf>0.35?'var(--amber)':'var(--red)';
+    document.getElementById('ar-score-label').style.color=conf>0.65?'var(--green)':conf>0.45?'var(--amber)':'var(--red)';
+    
     if     (conf>0.65) setARHUD('locked');
-    else if(conf>0.35) setARHUD('low');
+    else if(conf>0.45) setARHUD('low');
     else               setARHUD('searching');
 
+    // Only draw overlay if confidence is above threshold
+    const showOverlay = conf > CONFIDENCE_THRESHOLD;
+
     // ── Draw overlay ──────────────────────────────────────
-    if(arVisible && arRefReady){
+    if(arVisible && arRefReady && showOverlay){
       const region = arActiveCap.anchorRegion;
       
       // Reference image dimensions
@@ -940,8 +955,8 @@ function runARLoop(){
       ctx.restore();
     }
 
-    // ── Draw anchor region box ────────────────────────────
-    if(arActiveCap?.anchorRegion){
+    // ── Draw anchor region box (only when NOT locked) ─────
+    if(arActiveCap?.anchorRegion && conf < 0.65){
       const region = arActiveCap.anchorRegion;
       const refAspect = arRefImg.width / arRefImg.height;
       const drawW = cw * sScale;
@@ -995,7 +1010,7 @@ function matchTemplate(video, template, scratch, sctx, cw, ch) {
   
   // Slide template and find best match
   let bestX = 0, bestY = 0, bestScore = Infinity;
-  const step = 4; // Sample every 4 pixels for speed
+  const step = 3; // Smaller step for better accuracy
   
   for (let y = 0; y <= mh - sth; y += step) {
     for (let x = 0; x <= MATCH_WIDTH - stw; x += step) {
@@ -1025,28 +1040,43 @@ function matchTemplate(video, template, scratch, sctx, cw, ch) {
   const matchX = (bestX / MATCH_WIDTH) * cw;
   const matchY = (bestY / mh) * ch;
   
-  // Compute confidence (inverse of normalized SSD)
+  // Compute confidence with better normalization
   const maxSSD = stw * sth; // Max possible SSD
   const normSSD = bestScore / maxSSD;
-  const conf = Math.max(0, 1 - normSSD * 2); // Scale to 0-1
   
-  // Compute transform
+  // More forgiving confidence calculation - adjusted thresholds
+  let conf;
+  if (normSSD < 0.05) {
+    conf = 1.0; // Excellent match
+  } else if (normSSD < 0.15) {
+    conf = 0.85 - (normSSD - 0.05) * 3.5; // Good match: 0.85 - 0.50
+  } else if (normSSD < 0.30) {
+    conf = 0.50 - (normSSD - 0.15) * 2.0; // Fair match: 0.50 - 0.20
+  } else {
+    conf = Math.max(0, 0.20 - (normSSD - 0.30) * 0.5); // Poor match
+  }
+  
+  // Compute transform - improved scale calculation
   const region = template.region;
-  const scaleRatio = (stw / tw) * (cw / MATCH_WIDTH);
+  
+  // More accurate scale: compare template dimensions to matched dimensions in screen space
+  const matchWidthScreen = (stw / MATCH_WIDTH) * cw;
+  const templateWidthScreen = tw * (cw / video.videoWidth);
+  const scaleRatio = matchWidthScreen / templateWidthScreen;
   
   // Translation: offset from expected anchor center to matched center
   const anchorCenterX = region.x + region.w/2;
   const anchorCenterY = region.y + region.h/2;
   const expectedX = cw * anchorCenterX;
   const expectedY = ch * anchorCenterY;
-  const matchCenterX = matchX + (stw / MATCH_WIDTH) * cw / 2;
-  const matchCenterY = matchY + (sth / mh) * ch / 2;
+  const matchCenterX = matchX + matchWidthScreen / 2;
+  const matchCenterY = matchY + ((sth / mh) * ch) / 2;
   
   return {
     tx: matchCenterX - expectedX,
     ty: matchCenterY - expectedY,
     scale: scaleRatio,
-    conf: Math.min(1, conf)
+    conf: Math.min(1, Math.max(0, conf))
   };
 }
 
