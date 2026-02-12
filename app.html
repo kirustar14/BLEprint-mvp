@@ -143,33 +143,44 @@
       <input type="file" id="gallery-input" accept="image/*" style="display:none;" onchange="handleGallerySelect(event)" />
     </div>
 
-    <!-- ANCHOR REGION SELECTION -->
+    <!-- ANCHOR SELECTION -->
     <div id="screen-anchor" class="screen">
       <div style="background:var(--bg-2);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;">
         <button class="btn btn-icon btn-secondary" onclick="cancelAnchor()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
         <div>
-          <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;letter-spacing:0.06em;">Select Anchor Region</div>
-          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Drag to select a distinctive area</div>
+          <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;letter-spacing:0.06em;">Select Anchor Point</div>
+          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Pick a fixed permanent landmark</div>
         </div>
       </div>
       <div class="anchor-screen">
-        <div class="anchor-preview" id="anchor-preview-container" style="position:relative;overflow:hidden;">
-          <img id="anchor-preview-img" src="" alt="Captured photo" style="width:100%;height:100%;object-fit:contain;display:block;"/>
-          <canvas id="anchor-selection-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair;touch-action:none;"></canvas>
+        <div class="anchor-preview" id="anchor-preview-container">
+          <img id="anchor-preview-img" src="" alt="Captured photo" />
+          <div class="anchor-grid-overlay" id="anchor-grid"></div>
         </div>
         <div class="anchor-info-panel">
           <div class="anchor-selected-info">
             <div class="dot" id="anchor-dot" style="background:var(--text-muted);box-shadow:none;"></div>
             <div>
-              <div class="anchor-pos-label" id="anchor-pos-text" style="color:var(--text-muted);">No region selected</div>
-              <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Drag to select a distinctive area with features</div>
+              <div class="anchor-pos-label" id="anchor-pos-text" style="color:var(--text-muted);">No anchor selected</div>
+              <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Tap a point — corner, pipe, outlet, stud</div>
             </div>
           </div>
           <div style="background:var(--bg-3);border:1px solid var(--border-glow);border-radius:var(--radius);padding:12px;font-size:0.78rem;color:var(--text-secondary);line-height:1.6;">
             <span style="color:var(--amber);font-family:var(--font-mono);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;">How AR works</span><br/>
-            The region you select should contain <strong style="color:var(--text-primary);">distinctive features</strong> (corners, outlets, pipes, markings). In AR mode, we'll find this exact region in the live feed and align the full overlay image to match — giving you an accurate X-ray view of what's behind the wall.
+            The anchor you select is a <strong style="color:var(--text-primary);">fixed real-world point</strong>. In AR mode, the overlay image is warped and scaled so this point stays locked to the same physical spot — giving you an accurate X-ray view of what's behind the wall.
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;">
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP-LEFT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP-RIGHT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">LEFT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">CENTER</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">RIGHT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOT-LEFT</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOTTOM</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOT-RIGHT</div>
           </div>
           <div class="form-group">
             <label class="form-label">Notes (optional)</label>
@@ -198,7 +209,7 @@
         <canvas id="ar-canvas"
           style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;"></canvas>
 
-        <!-- Anchor region box on top -->
+        <!-- Anchor crosshair on top -->
         <canvas id="ar-anchor-canvas"
           style="position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;"></canvas>
 
@@ -364,7 +375,7 @@ const store  = getStorage(fbApp);
 
 /* ── STATE ──────────────────────────────────────────────── */
 let me = null, scene = null, scenes = [], captures = [];
-let pendingImg = null, pendingAnchorRegion = null;
+let pendingImg = null, pendingAnchor = null;
 let camStream = null, arStream = null, arRaf = null;
 let facingMode = 'environment', viewingCap = null;
 
@@ -373,13 +384,17 @@ let arVisible = true;
 let arOpacities = [0.25, 0.5, 0.75, 1.0], arOIdx = 1;
 let arOpacity = 0.5;
 let arRefImg = null, arRefReady = false, arActiveCap = null;
-let arTemplateData = null; // Extracted template from anchor region
 // Smoothed transform (lerped every frame)
 let sTx = 0, sTy = 0, sScale = 1;
-const LERP = 0.12;
+const LERP = 0.1;
 
-// Anchor region selection state
-let selectionStart = null, selectionCurrent = null, isSelecting = false;
+/* ── ANCHOR DEFINITIONS ─────────────────────────────────── */
+const ANCHOR_NAMES = ['TOP-LEFT','TOP','TOP-RIGHT','LEFT','CENTER','RIGHT','BOTTOM-LEFT','BOTTOM','BOTTOM-RIGHT'];
+const ANCHOR_POS = {
+  'TOP-LEFT':    {x:0.15,y:0.15}, 'TOP':        {x:0.50,y:0.12}, 'TOP-RIGHT':   {x:0.85,y:0.15},
+  'LEFT':        {x:0.12,y:0.50}, 'CENTER':     {x:0.50,y:0.50}, 'RIGHT':       {x:0.88,y:0.50},
+  'BOTTOM-LEFT': {x:0.15,y:0.85}, 'BOTTOM':     {x:0.50,y:0.88}, 'BOTTOM-RIGHT':{x:0.85,y:0.85},
+};
 
 /* ── TOAST ───────────────────────────────────────────────── */
 function toast(msg, type='info') {
@@ -417,7 +432,7 @@ function showScreen(id) {
     scenes:`<span class="active">Scenes</span>`,
     detail:`<span class="crumb" onclick="goToScenes()" style="cursor:pointer;">Scenes</span><span class="sep">›</span><span class="active">${n}</span>`,
     camera:`<span class="crumb" onclick="closeCameraScreen()" style="cursor:pointer;">${n}</span><span class="sep">›</span><span class="active">Camera</span>`,
-    anchor:`<span class="active">Anchor Region</span>`,
+    anchor:`<span class="active">Anchor Point</span>`,
     ar:    `<span class="crumb" onclick="closeARScreen()" style="cursor:pointer;">${n}</span><span class="sep">›</span><span class="active">AR View</span>`,
     profile:`<span class="active">Profile</span>`,
   }[id]||'';
@@ -524,7 +539,7 @@ function renderCaptures(){
   grid.innerHTML=captures.map((c,i)=>`
     <div class="capture-thumb" onclick="viewCapture(${i})">
       <img src="${h(c.imageURL)}" loading="lazy"/>
-      ${c.anchorRegion?`<div class="capture-anchor-badge">Region Selected</div>`:''}
+      ${c.anchor?`<div class="capture-anchor-badge">${h(c.anchor)}</div>`:''}
       ${c.notes?`<div class="capture-notes">${h(c.notes.slice(0,40))}${c.notes.length>40?'…':''}</div>`:''}
     </div>`).join('');
 }
@@ -532,7 +547,7 @@ window.viewCapture=i=>{
   const c=captures[i]; if(!c) return; viewingCap=c;
   document.getElementById('fullscreen-img').src=c.imageURL;
   document.getElementById('fullscreen-title').textContent=`Capture ${i+1}`;
-  document.getElementById('fullscreen-anchor').textContent=c.anchorRegion?`Anchor region selected`:'';
+  document.getElementById('fullscreen-anchor').textContent=c.anchor?`Anchor: ${c.anchor}`:'';
   document.getElementById('fullscreen-notes').textContent=c.notes||'No notes added.';
   document.getElementById('fullscreen-date').textContent=c.createdAt?.toDate?c.createdAt.toDate().toLocaleString():'';
   document.getElementById('fullscreen-view').classList.remove('hidden');
@@ -540,36 +555,14 @@ window.viewCapture=i=>{
 window.closeFullscreen=()=>{document.getElementById('fullscreen-view').classList.add('hidden');viewingCap=null;};
 window.deleteCurrentCapture=async()=>{
   if(!viewingCap)return;
-  const capToDelete = viewingCap; // Store reference before modal
-  
-  // Show modal immediately
   openConfirm('Delete Capture','Delete this capture? Cannot be undone.',async()=>{
     try {
-      // Delete from storage if exists
-      if(capToDelete.storagePath){
-        try{
-          await deleteObject(ref(store,capToDelete.storagePath));
-        }catch(err){
-          console.warn('Failed to delete storage file:', err);
-        }
-      }
-      
-      // Delete from Firestore
-      await deleteDoc(doc(db,'captures',capToDelete.id));
-      
-      // Update scene capture count
+      if(viewingCap.storagePath)try{await deleteObject(ref(store,viewingCap.storagePath));}catch{}
+      await deleteDoc(doc(db,'captures',viewingCap.id));
       const nc=Math.max(0,(scene.captureCount||1)-1);
-      await updateDoc(doc(db,'scenes',scene.id),{captureCount:nc,updatedAt:serverTimestamp()});
-      scene.captureCount=nc;
-      
-      // Close fullscreen and reload
-      closeFullscreen();
-      await loadCaptures();
-      toast('Capture deleted','info');
-    } catch(e){
-      console.error('Delete error:', e);
-      toast('Failed to delete capture','error');
-    }
+      await updateDoc(doc(db,'scenes',scene.id),{captureCount:nc});
+      scene.captureCount=nc; closeFullscreen(); await loadCaptures(); toast('Capture deleted','info');
+    } catch(e){toast('Failed to delete capture','error');}
   });
 };
 
@@ -602,207 +595,82 @@ window.handleGallerySelect=e=>{
   const r=new FileReader(); r.onload=ev=>{pendingImg=ev.target.result;stopCam();openAnchorScreen(pendingImg);}; r.readAsDataURL(f); e.target.value='';
 };
 
-/* ══════════════════════════════════════════════════════════════
-   ANCHOR REGION SELECTION
-   ═══════════════════════════════════════════════════════════════
-
-   User drags to select a rectangular region containing distinctive
-   features. This region becomes the template for AR matching.
-══════════════════════════════════════════════════════════════ */
-
+/* ── ANCHOR SELECTION ────────────────────────────────────── */
 function openAnchorScreen(img){
-  pendingAnchorRegion=null; selectionStart=null; selectionCurrent=null; isSelecting=false;
+  pendingAnchor=null;
   document.getElementById('anchor-preview-img').src=img;
   document.getElementById('save-capture-btn').disabled=true;
-  document.getElementById('anchor-pos-text').textContent='No region selected';
+  document.getElementById('anchor-pos-text').textContent='No anchor selected';
   document.getElementById('anchor-pos-text').style.color='var(--text-muted)';
   document.getElementById('anchor-dot').style.background='var(--text-muted)';
   document.getElementById('anchor-dot').style.boxShadow='none';
   document.getElementById('anchor-notes').value='';
-  
-  const canvas = document.getElementById('anchor-selection-canvas');
-  const container = document.getElementById('anchor-preview-container');
-  
-  // Setup canvas interaction
-  setupRegionSelection(canvas, container);
-  
+  document.getElementById('anchor-grid').innerHTML=ANCHOR_NAMES.map((n,i)=>`
+    <div class="anchor-point" id="ap-${i}" onclick="selAnchor(${i},'${n}')"><div class="anchor-dot"></div></div>`).join('');
   showScreen('anchor');
 }
-
-function setupRegionSelection(canvas, container) {
-  const ctx = canvas.getContext('2d');
-  
-  function redraw() {
-    const img = document.getElementById('anchor-preview-img');
-    const rect = container.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    if (selectionStart && selectionCurrent) {
-      const x = Math.min(selectionStart.x, selectionCurrent.x);
-      const y = Math.min(selectionStart.y, selectionCurrent.y);
-      const w = Math.abs(selectionCurrent.x - selectionStart.x);
-      const h = Math.abs(selectionCurrent.y - selectionStart.y);
-      
-      // Dim outside selection
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.clearRect(x, y, w, h);
-      
-      // Draw selection box
-      ctx.strokeStyle = '#fbbf24';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([8, 4]);
-      ctx.strokeRect(x, y, w, h);
-      
-      // Corner markers
-      ctx.setLineDash([]);
-      ctx.fillStyle = '#fbbf24';
-      const cs = 8;
-      [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([px,py]) => {
-        ctx.fillRect(px-cs/2, py-cs/2, cs, cs);
-      });
-      
-      // Dimensions label
-      ctx.fillStyle = '#fbbf24';
-      ctx.font = '600 11px monospace';
-      ctx.fillText(`${Math.round(w)}×${Math.round(h)}px`, x + 4, y - 6);
-    }
-  }
-  
-  function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const touch = e.touches ? e.touches[0] : e;
-    return {
-      x: touch.clientX - rect.left,
-      y: touch.clientY - rect.top
-    };
-  }
-  
-  function onStart(e) {
-    e.preventDefault();
-    const pos = getPos(e);
-    selectionStart = pos;
-    selectionCurrent = pos;
-    isSelecting = true;
-    redraw();
-  }
-  
-  function onMove(e) {
-    if (!isSelecting) return;
-    e.preventDefault();
-    selectionCurrent = getPos(e);
-    redraw();
-  }
-  
-  function onEnd(e) {
-    if (!isSelecting) return;
-    e.preventDefault();
-    isSelecting = false;
-    
-    if (!selectionStart || !selectionCurrent) return;
-    
-    const x = Math.min(selectionStart.x, selectionCurrent.x);
-    const y = Math.min(selectionStart.y, selectionCurrent.y);
-    const w = Math.abs(selectionCurrent.x - selectionStart.x);
-    const h = Math.abs(selectionCurrent.y - selectionStart.y);
-    
-    // Validate selection size
-    if (w < 40 || h < 40) {
-      toast('Region too small - select a larger area with distinctive features', 'warn');
-      selectionStart = null;
-      selectionCurrent = null;
-      redraw();
-      return;
-    }
-    
-    // Store normalized coordinates (0-1 range)
-    const img = document.getElementById('anchor-preview-img');
-    const rect = container.getBoundingClientRect();
-    
-    pendingAnchorRegion = {
-      x: x / rect.width,
-      y: y / rect.height,
-      w: w / rect.width,
-      h: h / rect.height
-    };
-    
-    document.getElementById('anchor-pos-text').textContent=`Region: ${Math.round(w)}×${Math.round(h)}px`;
-    document.getElementById('anchor-pos-text').style.color='var(--blue)';
-    document.getElementById('anchor-dot').style.background='var(--blue)';
-    document.getElementById('anchor-dot').style.boxShadow='0 0 8px var(--blue)';
-    document.getElementById('save-capture-btn').disabled=false;
-  }
-  
-  canvas.addEventListener('mousedown', onStart);
-  canvas.addEventListener('mousemove', onMove);
-  canvas.addEventListener('mouseup', onEnd);
-  canvas.addEventListener('touchstart', onStart);
-  canvas.addEventListener('touchmove', onMove);
-  canvas.addEventListener('touchend', onEnd);
-}
-
-window.cancelAnchor=()=>{ 
-  pendingAnchorRegion=null; pendingImg=null; 
-  selectionStart=null; selectionCurrent=null; isSelecting=false;
-  showScreen('detail'); 
+window.selAnchor=(idx,name)=>{
+  pendingAnchor=name;
+  document.querySelectorAll('.anchor-point').forEach((el,i)=>el.classList.toggle('selected',i===idx));
+  document.getElementById('anchor-pos-text').textContent=name;
+  document.getElementById('anchor-pos-text').style.color='var(--blue)';
+  document.getElementById('anchor-dot').style.background='var(--blue)';
+  document.getElementById('anchor-dot').style.boxShadow='0 0 8px var(--blue)';
+  document.getElementById('save-capture-btn').disabled=false;
 };
-
+window.cancelAnchor=()=>{ pendingAnchor=null; pendingImg=null; showScreen('detail'); };
 window.saveCapture=async()=>{
-  if(!pendingAnchorRegion||!pendingImg){toast('Please select an anchor region','warn');return;}
+  if(!pendingAnchor||!pendingImg){toast('Please select an anchor point','warn');return;}
   const btn=document.getElementById('save-capture-btn'); btn.innerHTML='<div class="spinner"></div> Saving…'; btn.disabled=true;
   const notes=document.getElementById('anchor-notes').value.trim();
   try {
     const path=`captures/${me.uid}/${scene.id}/${Date.now()}.jpg`;
     const sr=ref(store,path); await uploadString(sr,pendingImg,'data_url');
     const imageURL=await getDownloadURL(sr);
-    await addDoc(collection(db,'captures'),{
-      uid:me.uid,
-      sceneId:scene.id,
-      imageURL,
-      storagePath:path,
-      anchorRegion:pendingAnchorRegion,
-      notes,
-      createdAt:serverTimestamp()
-    });
+    await addDoc(collection(db,'captures'),{uid:me.uid,sceneId:scene.id,imageURL,storagePath:path,anchor:pendingAnchor,notes,createdAt:serverTimestamp()});
     const nc=(scene.captureCount||0)+1;
     await updateDoc(doc(db,'scenes',scene.id),{captureCount:nc,thumbnailURL:imageURL,updatedAt:serverTimestamp()});
     scene.captureCount=nc; scene.thumbnailURL=imageURL;
-    toast('Capture saved!','success'); pendingAnchorRegion=null; pendingImg=null;
+    toast('Capture saved!','success'); pendingAnchor=null; pendingImg=null;
     showScreen('detail'); await loadCaptures(); await loadScenes();
   } catch(e){console.error(e);toast('Failed to save capture. Check Firebase Storage is enabled.','error');}
   finally{btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Capture'; btn.disabled=false;}
 };
 
 /* ══════════════════════════════════════════════════════════════
-   AR ENGINE - TEMPLATE MATCHING
+   AR ENGINE
    ═══════════════════════════════════════════════════════════════
 
    HOW IT WORKS:
    ─────────────
-   1. User selected an ANCHOR REGION when saving the capture.
-      This region contains distinctive features for matching.
+   1. User selected an ANCHOR POINT when they saved this capture.
+      That anchor maps to a known normalized (x,y) coordinate inside
+      the reference image (e.g. CENTER = {x:0.5, y:0.5}).
 
-   2. We extract the anchor region from the reference image as a
-      TEMPLATE with grayscale pixel data.
+   2. We run a lightweight FEATURE DETECTOR on both the reference
+      image and each live camera frame (downscaled to 96×72 for speed).
+      Features are Harris-like corners detected via Sobel gradient
+      magnitude, with normalized 8×8 patch descriptors.
 
-   3. Each frame, we run TEMPLATE MATCHING on the live camera feed:
-      - Slide the template across the frame
-      - Compute Sum of Squared Differences (SSD) at each position
-      - Find the position with minimum SSD (best match)
+   3. We MATCH features between reference and live using patch SSD.
+      From matched pairs we estimate:
+        • SCALE  — ratio of matched-pair distances
+        • TX/TY  — weighted mean translation offset
 
-   4. Once matched, we calculate:
-      - SCALE: ratio between template size in pixels and matched size
-      - TX/TY: offset to align reference image anchor to matched position
+   4. The reference image is drawn on the overlay canvas with:
+        • Its anchor pixel placed at the correct canvas position
+        • Scaled proportionally (zoom in/out as user moves closer)
+        • 50% opacity (adjustable)
 
-   5. The reference image is drawn with smooth lerping for stability.
+   5. All transform values are LERPED each frame (factor 0.10) for
+      smooth, jitter-free overlay even with hand shake.
 
-   6. The anchor region box is drawn in amber to show alignment target.
+   6. The amber CROSSHAIR is drawn at the anchor's current screen
+      position, showing the user exactly where to align.
 
-   RESULT: The reference image overlays accurately, showing MEP
-   infrastructure through walls as the user moves their camera.
+   RESULT: The reference image overlays the live feed, correctly
+   zoomed/positioned, so the user sees MEP infrastructure through
+   the wall as they point their phone at it.
 ══════════════════════════════════════════════════════════════ */
 
 window.openARScreen=async()=>{
@@ -814,7 +682,7 @@ async function startAR(){
   try {
     arStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}},audio:false});
     document.getElementById('ar-video').srcObject=arStream;
-    sTx=0; sTy=0; sScale=1; arRefImg=null; arRefReady=false; arTemplateData=null;
+    sTx=0; sTy=0; sScale=1; arRefImg=null; arRefReady=false;
     runARLoop();
   } catch(e){ toast('Camera access required for AR mode','error'); }
 }
@@ -822,7 +690,7 @@ function stopAR(){
   if(arRaf){cancelAnimationFrame(arRaf);arRaf=null;}
   if(arStream){arStream.getTracks().forEach(t=>t.stop());arStream=null;}
   const v=document.getElementById('ar-video'); if(v)v.srcObject=null;
-  arRefImg=null; arRefReady=false; arActiveCap=null; arTemplateData=null;
+  arRefImg=null; arRefReady=false; arActiveCap=null;
 }
 
 function buildARRow(){
@@ -834,56 +702,23 @@ function buildARRow(){
     </button>`).join('');
   pickARCap(0);
 }
-
 window.pickARCap=i=>{
   document.querySelectorAll('.ar-capture-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
-  arActiveCap=captures[i]; arRefReady=false; arTemplateData=null;
+  arActiveCap=captures[i]; arRefReady=false;
   arRefImg=new Image(); arRefImg.crossOrigin='anonymous';
-  arRefImg.onload=()=>{ 
-    arRefReady=true;
-    // Extract template from anchor region
-    extractTemplate();
-  };
+  arRefImg.onload=()=>{ arRefReady=true; };
   arRefImg.onerror=()=>toast('Could not load reference image','error');
   arRefImg.src=arActiveCap.imageURL;
   sTx=0; sTy=0; sScale=1; setARHUD('loading');
 };
 
-function extractTemplate() {
-  if (!arRefImg || !arActiveCap.anchorRegion) return;
-  
-  const region = arActiveCap.anchorRegion;
-  const tw = Math.floor(arRefImg.width * region.w);
-  const th = Math.floor(arRefImg.height * region.h);
-  const tx = Math.floor(arRefImg.width * region.x);
-  const ty = Math.floor(arRefImg.height * region.y);
-  
-  // Extract template from reference image
-  const canvas = document.createElement('canvas');
-  canvas.width = tw;
-  canvas.height = th;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(arRefImg, tx, ty, tw, th, 0, 0, tw, th);
-  
-  const imageData = ctx.getImageData(0, 0, tw, th);
-  const data = imageData.data;
-  
-  // Convert to grayscale
-  const gray = new Float32Array(tw * th);
-  for (let i = 0; i < tw * th; i++) {
-    gray[i] = (data[i*4] * 0.299 + data[i*4+1] * 0.587 + data[i*4+2] * 0.114) / 255;
-  }
-  
-  arTemplateData = { w: tw, h: th, data: gray, region };
-}
-
 /* ── HUD status ──────────────────────────────────────────── */
 function setARHUD(state, conf){
   const dot=document.getElementById('ar-lock-dot'), txt=document.getElementById('ar-status-text'), hint=document.getElementById('ar-hint');
   if(state==='loading'){ dot.style.background='var(--amber)'; txt.textContent='LOADING'; if(hint)hint.textContent='Loading reference image…'; }
-  else if(state==='searching'){ dot.style.background='var(--amber)'; txt.textContent='SEARCHING'; if(hint)hint.textContent='Point camera at the wall to find matching pixels'; }
-  else if(state==='low'){ dot.style.background='#f59e0b'; txt.textContent='TRACKING'; if(hint)hint.textContent='Pixels matched — overlay appearing'; }
-  else if(state==='locked'){ dot.style.background='var(--green)'; txt.textContent='LOCKED ✓'; if(hint)hint.textContent='Perfect match — seeing through the wall'; }
+  else if(state==='searching'){ dot.style.background='var(--amber)'; txt.textContent='SEARCHING'; if(hint)hint.textContent='Point camera at the wall — align the amber crosshair to the anchor point'; }
+  else if(state==='low'){ dot.style.background='#f59e0b'; txt.textContent='LOW MATCH'; if(hint)hint.textContent='Move closer and match the angle of the original photo'; }
+  else if(state==='locked'){ dot.style.background='var(--green)'; txt.textContent='LOCKED ✓'; if(hint)hint.textContent='Overlay aligned — see MEP infrastructure through the wall'; }
 }
 
 /* ── Main AR render loop ─────────────────────────────────── */
@@ -894,14 +729,12 @@ function runARLoop(){
   const ctx=cvs.getContext('2d');
   const actx=avcvs.getContext('2d');
 
-  // Offscreen for template matching (reduced size for performance)
-  const MATCH_WIDTH = 320;
-  const scratch=document.createElement('canvas');
+  // Offscreen scratch canvas for feature extraction (small = fast)
+  const FW=96, FH=72, PSIZE=8, NFEAT=14;
+  const scratch=document.createElement('canvas'); scratch.width=FW; scratch.height=FH;
   const sctx=scratch.getContext('2d',{willReadFrequently:true});
 
-  let frameN=0;
-  let lastGoodConf = 0;
-  const CONFIDENCE_THRESHOLD = 0.20; // Very low threshold - show almost always
+  let refFeats=null, lastRefSrc=null, frameN=0;
 
   function frame(){
     arRaf=requestAnimationFrame(frame);
@@ -909,226 +742,165 @@ function runARLoop(){
     cvs.width=cw; cvs.height=ch; avcvs.width=cw; avcvs.height=ch;
     ctx.clearRect(0,0,cw,ch); actx.clearRect(0,0,cw,ch);
 
-    if(!arRefReady||!arRefImg||!arTemplateData){ setARHUD('loading'); return; }
+    if(!arRefReady||!arRefImg){ setARHUD('loading'); return; }
 
-    // Template matching every frame for smoother tracking
-    let conf=lastGoodConf, tTx=sTx, tTy=sTy, tScale=sScale;
+    // Re-extract reference features if image changed
+    if(arRefImg.src!==lastRefSrc){
+      lastRefSrc=arRefImg.src;
+      sctx.drawImage(arRefImg,0,0,FW,FH);
+      refFeats=extractFeats(sctx,FW,FH,PSIZE,NFEAT);
+    }
+    if(!refFeats||refFeats.length<2){ setARHUD('searching'); return; }
+
+    // Sample live frame every other frame (perf)
+    let conf=0, tTx=sTx, tTy=sTy, tScale=sScale;
     frameN++;
-    
-    if(video.readyState>=2){
-      const matchResult = matchTemplate(video, arTemplateData, scratch, sctx, cw, ch);
-      if(matchResult){ // Accept all matches
-        tTx=matchResult.tx; 
-        tTy=matchResult.ty; 
-        tScale=matchResult.scale; 
-        conf=matchResult.conf;
-        lastGoodConf=conf;
-      } else {
-        // Very gentle decay - keep showing
-        lastGoodConf = Math.max(0.25, lastGoodConf * 0.98);
-        conf = lastGoodConf;
+    if(frameN%2===0 && video.readyState>=2){
+      sctx.drawImage(video,0,0,FW,FH);
+      const liveFeats=extractFeats(sctx,FW,FH,PSIZE,NFEAT);
+      if(liveFeats.length>=2){
+        const t=estimateTransform(refFeats,liveFeats,FW,FH,cw,ch,arActiveCap.anchor);
+        tTx=t.tx; tTy=t.ty; tScale=t.scale; conf=t.conf;
       }
     } else {
-      conf = lastGoodConf;
+      // Hold previous confidence estimate
+      conf=parseFloat(document.getElementById('ar-score-label').textContent||'0')/100||0;
     }
 
-    // Always lerp for smooth motion
-    const lerpAmount = 0.12;
-    sTx    += (tTx    - sTx)    * lerpAmount;
-    sTy    += (tTy    - sTy)    * lerpAmount;
-    sScale += (tScale - sScale) * lerpAmount;
+    // Lerp towards target transform
+    sTx    += (tTx    - sTx)    * LERP;
+    sTy    += (tTy    - sTy)    * LERP;
+    sScale += (tScale - sScale) * LERP;
 
     // Update HUD
     const pct=Math.round(conf*100);
     document.getElementById('ar-meter').style.width=pct+'%';
     document.getElementById('ar-score-label').textContent=pct>0?pct+'%':'–';
-    document.getElementById('ar-score-label').style.color=conf>0.50?'var(--green)':conf>0.30?'var(--amber)':'var(--red)';
-    
-    if     (conf>0.50) setARHUD('locked');
-    else if(conf>0.30) setARHUD('low');
+    document.getElementById('ar-score-label').style.color=conf>0.65?'var(--green)':conf>0.35?'var(--amber)':'var(--red)';
+    if     (conf>0.65) setARHUD('locked');
+    else if(conf>0.35) setARHUD('low');
     else               setARHUD('searching');
 
-    // Show overlay almost always
-    const showOverlay = conf > CONFIDENCE_THRESHOLD || lastGoodConf > CONFIDENCE_THRESHOLD;
-
     // ── Draw overlay ──────────────────────────────────────
-    if(arVisible && arRefReady && showOverlay){
-      const region = arActiveCap.anchorRegion;
-      
-      // Calculate scaled dimensions
+    if(arVisible && arRefReady){
+      const ap=ANCHOR_POS[arActiveCap.anchor]||{x:0.5,y:0.5};
+
+      // Reference image natural aspect ratio
+      const refAspect = arRefImg.naturalWidth / (arRefImg.naturalHeight||1);
+      // Scale the draw size: sScale=1 means reference fills canvas width
       const drawW = cw * sScale;
-      const drawH = (arRefImg.height / arRefImg.width) * drawW;
-      
-      // Anchor region center in normalized coords
-      const anchorCenterX = region.x + region.w/2;
-      const anchorCenterY = region.y + region.h/2;
-      
-      // Where the anchor center should be on screen
-      const anchorScreenX = cw * anchorCenterX + sTx;
-      const anchorScreenY = ch * anchorCenterY + sTy;
-      
-      // Top-left of the full reference image
-      const drawX = anchorScreenX - anchorCenterX * drawW;
-      const drawY = anchorScreenY - anchorCenterY * drawH;
-      
+      const drawH = drawW / refAspect;
+
+      // Anchor pixel in CANVAS space = where anchor physically is on screen
+      // We use the canvas-center as the "base" and offset by smoothed tx/ty
+      const anchorScreenX = cw  * ap.x + sTx;
+      const anchorScreenY = ch  * ap.y + sTy;
+
+      // Top-left of drawn image so anchor pixel lands at anchorScreen
+      const drawX = anchorScreenX - ap.x * drawW;
+      const drawY = anchorScreenY - ap.y * drawH;
+
       ctx.save();
       ctx.globalAlpha=arOpacity;
       ctx.drawImage(arRefImg, drawX, drawY, drawW, drawH);
       ctx.restore();
     }
 
-    // No yellow box - cleaner interface
+    // ── Draw anchor crosshair (always visible) ────────────
+    if(arActiveCap?.anchor){
+      const ap=ANCHOR_POS[arActiveCap.anchor]||{x:0.5,y:0.5};
+      const ax=cw*ap.x+sTx, ay=ch*ap.y+sTy;
+      drawCrosshair(actx,ax,ay,arActiveCap.anchor,conf);
+    }
   }
   frame();
 }
 
-/* ── Template Matching Algorithm ─────────────────────────── */
-function matchTemplate(video, template, scratch, sctx, cw, ch) {
-  const tw = template.w;
-  const th = template.h;
-  
-  // Scale video to match width for faster processing
-  const matchAspect = video.videoWidth / video.videoHeight;
-  const mh = Math.floor(MATCH_WIDTH / matchAspect);
-  scratch.width = MATCH_WIDTH;
-  scratch.height = mh;
-  
-  sctx.drawImage(video, 0, 0, MATCH_WIDTH, mh);
-  const frame = sctx.getImageData(0, 0, MATCH_WIDTH, mh);
-  const fdata = frame.data;
-  
-  // Convert to grayscale
-  const gray = new Float32Array(MATCH_WIDTH * mh);
-  for (let i = 0; i < MATCH_WIDTH * mh; i++) {
-    gray[i] = (fdata[i*4] * 0.299 + fdata[i*4+1] * 0.587 + fdata[i*4+2] * 0.114) / 255;
+/* ── Feature extraction (Harris-like) ───────────────────── */
+function extractFeats(ctx,w,h,ps,n){
+  let data; try{data=ctx.getImageData(0,0,w,h).data;}catch{return[];}
+  const half=ps>>1;
+  const g=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++) g[i]=(data[i*4]*77+data[i*4+1]*150+data[i*4+2]*29)/65535;
+  const sc=new Float32Array(w*h);
+  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
+    const gx=-g[(y-1)*w+x-1]+g[(y-1)*w+x+1]-2*g[y*w+x-1]+2*g[y*w+x+1]-g[(y+1)*w+x-1]+g[(y+1)*w+x+1];
+    const gy=-g[(y-1)*w+x-1]-2*g[(y-1)*w+x]-g[(y-1)*w+x+1]+g[(y+1)*w+x-1]+2*g[(y+1)*w+x]+g[(y+1)*w+x+1];
+    sc[y*w+x]=gx*gx+gy*gy;
   }
-  
-  // Scale template to search resolution
-  const videoScale = MATCH_WIDTH / video.videoWidth;
-  const stw = Math.max(8, Math.floor(tw * videoScale));
-  const sth = Math.max(8, Math.floor(th * videoScale));
-  
-  if (stw >= MATCH_WIDTH * 0.8 || sth >= mh * 0.8) {
-    return null; // Template too large
+  const cands=[]; const mg=half+1;
+  for(let y=mg;y<h-mg;y++) for(let x=mg;x<w-mg;x++){
+    const s=sc[y*w+x]; if(s<0.005) continue;
+    let mx=true;
+    outer:for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) if(sc[(y+dy)*w+x+dx]>s){mx=false;break outer;}
+    if(mx) cands.push({x,y,s});
   }
-  
-  // Find best match
-  let bestX = 0, bestY = 0, bestScore = Infinity;
-  const step = 5; // Coarse search for speed
-  
-  for (let y = 0; y <= mh - sth; y += step) {
-    for (let x = 0; x <= MATCH_WIDTH - stw; x += step) {
-      let ssd = 0;
-      let count = 0;
-      
-      // Sample every 3rd pixel for speed
-      for (let ty = 0; ty < sth; ty += 3) {
-        for (let tx = 0; tx < stw; tx += 3) {
-          const fx = Math.floor((tx / stw) * tw);
-          const fy = Math.floor((ty / sth) * th);
-          const tval = template.data[fy * tw + fx];
-          const fval = gray[(y + ty) * MATCH_WIDTH + (x + tx)];
-          const diff = tval - fval;
-          ssd += diff * diff;
-          count++;
-        }
-      }
-      
-      if (ssd < bestScore) {
-        bestScore = ssd;
-        bestX = x;
-        bestY = y;
-      }
-    }
+  cands.sort((a,b)=>b.s-a.s);
+  const feats=[], minD=Math.floor(w/(n*0.8));
+  for(const c of cands){
+    if(feats.length>=n)break;
+    if(feats.some(f=>Math.abs(f.x-c.x)<minD&&Math.abs(f.y-c.y)<minD)) continue;
+    const d=new Float32Array(ps*ps); let mu=0;
+    for(let dy=0;dy<ps;dy++) for(let dx=0;dx<ps;dx++){const v=g[(c.y-half+dy)*w+c.x-half+dx];d[dy*ps+dx]=v;mu+=v;}
+    mu/=d.length; let sd=0;
+    for(let i=0;i<d.length;i++){d[i]-=mu;sd+=d[i]*d[i];}
+    sd=Math.sqrt(sd/d.length)||1; for(let i=0;i<d.length;i++)d[i]/=sd;
+    feats.push({x:c.x/w,y:c.y/h,d});
   }
-  
-  // Very forgiving confidence - basically always show something
-  const avgSSD = bestScore / Math.max(1, Math.ceil(stw/3) * Math.ceil(sth/3));
-  let conf;
-  if (avgSSD < 0.05) {
-    conf = 1.0;
-  } else if (avgSSD < 0.15) {
-    conf = 0.85;
-  } else if (avgSSD < 0.30) {
-    conf = 0.60;
-  } else if (avgSSD < 0.50) {
-    conf = 0.40;
-  } else {
-    conf = 0.25; // Always give at least some confidence
-  }
-  
-  // Calculate scale: How much bigger/smaller is the match compared to the template?
-  // If we found the template at a certain size in the downscaled frame,
-  // we need to scale up to real camera size, then figure out the overall scale
-  const region = template.region;
-  
-  // The matched region in the downscaled frame is (stw x sth) pixels
-  // Scale this back up to screen coordinates
-  const matchWidthInScreen = (stw / MATCH_WIDTH) * cw;
-  const matchHeightInScreen = (sth / mh) * ch;
-  
-  // The original template was (tw x th) pixels from a (arRefImg.width x arRefImg.height) image
-  // If we want the reference image to fit the screen width, the anchor region should be:
-  const refImgWidthToFitScreen = cw;
-  const anchorWidthIfImageFitsScreen = region.w * refImgWidthToFitScreen;
-  
-  // Scale ratio
-  const scaleRatio = matchWidthInScreen / anchorWidthIfImageFitsScreen;
-  
-  // Position: where did we find the match?
-  const matchCenterX = (bestX / MATCH_WIDTH) * cw + matchWidthInScreen / 2;
-  const matchCenterY = (bestY / mh) * ch + matchHeightInScreen / 2;
-  
-  // Where should the anchor center be?
-  const anchorCenterX = region.x + region.w/2;
-  const anchorCenterY = region.y + region.h/2;
-  const expectedX = cw * anchorCenterX;
-  const expectedY = ch * anchorCenterY;
-  
-  return {
-    tx: matchCenterX - expectedX,
-    ty: matchCenterY - expectedY,
-    scale: Math.max(0.5, Math.min(3.0, scaleRatio)), // Clamp scale
-    conf: Math.min(1, Math.max(0, conf))
-  };
+  return feats;
 }
 
-/* ── Anchor box drawing ──────────────────────────────────── */
-function drawAnchorBox(ctx, x, y, w, h, conf){
-  const clr = conf > 0.65 ? '#22c55e' : '#fbbf24';
-  
+/* ── Transform estimation ────────────────────────────────── */
+function estimateTransform(rfs,lfs,fw,fh,cw,ch,anchor){
+  const THR=0.60;
+  const matches=[];
+  for(const r of rfs){
+    let best=Infinity, bl=null;
+    for(const l of lfs){let d=0;for(let i=0;i<r.d.length;i++){const di=r.d[i]-l.d[i];d+=di*di;} d=Math.sqrt(d/r.d.length); if(d<best){best=d;bl=l;}}
+    if(best<THR&&bl) matches.push({rx:r.x,ry:r.y,lx:bl.x,ly:bl.y,s:best});
+  }
+  const conf=Math.min(1, matches.length/Math.max(rfs.length,1) * 1.5);
+  if(matches.length<2) return{tx:0,ty:0,scale:1,conf:0};
+
+  // Scale from pairwise distances
+  let tsc=0,nc=0;
+  for(let i=0;i<matches.length-1;i++) for(let j=i+1;j<matches.length;j++){
+    const rd=Math.hypot(matches[i].rx-matches[j].rx,matches[i].ry-matches[j].ry);
+    const ld=Math.hypot(matches[i].lx-matches[j].lx,matches[i].ly-matches[j].ly);
+    if(rd>0.04){tsc+=ld/rd;nc++;}
+  }
+  const scale=nc>0?Math.max(0.25,Math.min(4.0,tsc/nc)):1;
+
+  // Translation: weighted mean of (live - scale*ref)
+  let swx=0,swy=0,sw=0;
+  for(const m of matches){const w=1/(m.s+0.001);swx+=(m.lx-m.rx*scale)*w;swy+=(m.ly-m.ry*scale)*w;sw+=w;}
+  const tx=(sw?swx/sw:0)*cw, ty=(sw?swy/sw:0)*ch;
+  return{tx,ty,scale,conf};
+}
+
+/* ── Anchor crosshair drawing ────────────────────────────── */
+function drawCrosshair(ctx,x,y,name,conf){
+  const clr=conf>0.65?'#22c55e':'#f59e0b';
+  const r=conf>0.65?14:18;
   ctx.save();
-  
   // Glow
-  ctx.strokeStyle = clr;
-  ctx.globalAlpha = 0.15;
-  ctx.lineWidth = 12;
-  ctx.strokeRect(x-6, y-6, w+12, h+12);
-  
-  // Main box
-  ctx.globalAlpha = 0.9;
-  ctx.lineWidth = 3;
-  ctx.setLineDash([10, 5]);
-  ctx.strokeRect(x, y, w, h);
-  
-  // Corner markers
-  ctx.setLineDash([]);
-  ctx.fillStyle = clr;
-  const cs = 12, cl = 20;
-  
-  [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([px,py]) => {
-    ctx.fillRect(px-cs/2, py-cs/2, cs, cs);
-  });
-  
-  // Corner lines
-  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x,y,r+8,0,Math.PI*2);
+  ctx.strokeStyle=clr; ctx.globalAlpha=0.2; ctx.lineWidth=8; ctx.stroke();
+  ctx.globalAlpha=1;
+  // Ring
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.strokeStyle=clr; ctx.lineWidth=2; ctx.stroke();
+  // Dot
+  ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2); ctx.fillStyle=clr; ctx.fill();
+  // Arms
+  const g=r+4, a=g+16;
   ctx.beginPath();
-  ctx.moveTo(x, y+cl); ctx.lineTo(x, y); ctx.lineTo(x+cl, y);
-  ctx.moveTo(x+w-cl, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+cl);
-  ctx.moveTo(x, y+h-cl); ctx.lineTo(x, y+h); ctx.lineTo(x+cl, y+h);
-  ctx.moveTo(x+w-cl, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+h-cl);
-  ctx.stroke();
-  
+  ctx.moveTo(x-a,y);ctx.lineTo(x-g,y); ctx.moveTo(x+g,y);ctx.lineTo(x+a,y);
+  ctx.moveTo(x,y-a);ctx.lineTo(x,y-g); ctx.moveTo(x,y+g);ctx.lineTo(x,y+a);
+  ctx.strokeStyle=clr; ctx.lineWidth=2; ctx.stroke();
+  // Label
+  ctx.font='600 11px "IBM Plex Mono",monospace'; ctx.fillStyle=clr;
+  ctx.textAlign='center'; ctx.globalAlpha=0.9; ctx.fillText(name||'',x,y+r+16);
   ctx.restore();
 }
 
