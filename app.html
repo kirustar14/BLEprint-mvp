@@ -753,7 +753,7 @@ window.deleteCurrentScene = () => {
 };
 
 // ── Captures ────────────────────────────────────────────────────
-async function loadCaptures() {
+async function loadCaptures1() {
   try {
     const q    = query(collection(db, 'captures'), where('sceneId', '==', currentScene.id), orderBy('createdAt', 'desc'));
     const snap = await getDocs(q);
@@ -761,6 +761,47 @@ async function loadCaptures() {
     renderCaptures();
   } catch (err) {
     console.error(err);
+    toast('Failed to load captures', 'error');
+  }
+}
+
+async function loadCaptures() {
+  try {
+    console.log('=== LOAD CAPTURES DEBUG ===');
+    console.log('Current User UID:', currentUser.uid);
+    console.log('Current Scene ID:', currentScene.id);
+    
+    const q = query(
+      collection(db, 'captures'), 
+      where('sceneId', '==', currentScene.id), 
+      orderBy('createdAt', 'desc')
+    );
+    
+    console.log('Query created, fetching...');
+    const snap = await getDocs(q);
+    
+    console.log('SUCCESS! Documents fetched:', snap.docs.length);
+    
+    snap.docs.forEach((d, i) => {
+      const data = d.data();
+      console.log(`Capture ${i}:`, {
+        id: d.id,
+        uid: data.uid,
+        sceneId: data.sceneId,
+        anchor: data.anchor,
+        uidMatch: data.uid === currentUser.uid
+      });
+    });
+    
+    currentCaptures = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderCaptures();
+    
+  } catch (err) {
+    console.error('=== ERROR DETAILS ===');
+    console.error('Error object:', err);
+    console.error('Error code:', err.code);
+    console.error('Error message:', err.message);
+    console.error('Error name:', err.name);
     toast('Failed to load captures', 'error');
   }
 }
