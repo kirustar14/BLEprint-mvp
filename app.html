@@ -10,6 +10,79 @@
   <link rel="stylesheet" href="styles.css" />
   <link rel="icon" href="favicon.png" />
   <link rel="apple-touch-icon" href="icon.png" />
+  <style>
+    /* ── Anchor screen specific styles ── */
+    #anchor-canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+    }
+    #anchor-canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .anchor-candidate {
+      position: absolute;
+      border: 2px solid rgba(245,158,11,0.7);
+      border-radius: 4px;
+      pointer-events: all;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.5);
+    }
+    .anchor-candidate:hover,
+    .anchor-candidate.suggested {
+      border-color: #f59e0b;
+      background: rgba(245,158,11,0.15);
+    }
+    .anchor-candidate-label {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.8);
+      color: #f59e0b;
+      font-family: var(--font-mono);
+      font-size: 0.58rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      letter-spacing: 0.06em;
+    }
+    #anchor-pin {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      display: none;
+    }
+    #anchor-patch-preview {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid var(--blue);
+      flex-shrink: 0;
+      background: var(--bg-3);
+    }
+    .screen-anchor-layout {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+  </style>
 </head>
 <body>
 
@@ -143,80 +216,95 @@
       <input type="file" id="gallery-input" accept="image/*" style="display:none;" onchange="handleGallerySelect(event)" />
     </div>
 
-    <!-- ANCHOR SELECTION -->
+    <!-- ═══════════════════════════════════════════════════
+         ANCHOR SELECTION — tap-to-place with auto-highlight
+    ═══════════════════════════════════════════════════ -->
     <div id="screen-anchor" class="screen">
-      <div style="background:var(--bg-2);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;">
-        <button class="btn btn-icon btn-secondary" onclick="cancelAnchor()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <div>
-          <div style="font-family:var(--font-display);font-size:1.1rem;font-weight:700;letter-spacing:0.06em;">Select Anchor Point</div>
-          <div style="font-family:var(--font-mono);font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Pick a fixed permanent landmark</div>
-        </div>
-      </div>
-      <div class="anchor-screen">
-        <div class="anchor-preview" id="anchor-preview-container">
-          <img id="anchor-preview-img" src="" alt="Captured photo" />
-          <div class="anchor-grid-overlay" id="anchor-grid"></div>
-        </div>
-        <div class="anchor-info-panel">
-          <div class="anchor-selected-info">
-            <div class="dot" id="anchor-dot" style="background:var(--text-muted);box-shadow:none;"></div>
-            <div>
-              <div class="anchor-pos-label" id="anchor-pos-text" style="color:var(--text-muted);">No anchor selected</div>
-              <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">Tap a point — corner, pipe, outlet, stud</div>
+      <div class="screen-anchor-layout">
+
+        <!-- Top bar -->
+        <div style="background:var(--bg-2);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <button class="btn btn-icon btn-secondary" onclick="cancelAnchor()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <div style="flex:1;">
+            <div style="font-family:var(--font-display);font-size:1rem;font-weight:700;letter-spacing:0.06em;">Pick Anchor Object</div>
+            <div id="anchor-hint-label" style="font-family:var(--font-mono);font-size:0.62rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-top:1px;">
+              Tap a fixed object · highlighted = best choices
             </div>
           </div>
-          <div style="background:var(--bg-3);border:1px solid var(--border-glow);border-radius:var(--radius);padding:12px;font-size:0.78rem;color:var(--text-secondary);line-height:1.6;">
-            <span style="color:var(--amber);font-family:var(--font-mono);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;">How AR works</span><br/>
-            The anchor you select is a <strong style="color:var(--text-primary);">fixed real-world point</strong>. In AR mode, the overlay image is warped and scaled so this point stays locked to the same physical spot — giving you an accurate X-ray view of what's behind the wall.
+          <!-- Patch thumbnail shown after tap -->
+          <div id="anchor-patch-preview" style="display:none;">
+            <canvas id="anchor-patch-canvas" width="64" height="64" style="display:block;width:64px;height:64px;border-radius:6px;border:2px solid var(--blue);"></canvas>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;">
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP-LEFT</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">TOP-RIGHT</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">LEFT</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">CENTER</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">RIGHT</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOT-LEFT</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOTTOM</div>
-            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);padding:8px;background:var(--bg-3);border-radius:6px;border:1px solid var(--border);">BOT-RIGHT</div>
+        </div>
+
+        <!-- Photo canvas with candidate overlays -->
+        <div id="anchor-canvas-wrap">
+          <canvas id="anchor-canvas"></canvas>
+          <!-- Candidate highlight boxes injected here -->
+          <div id="anchor-candidates" style="position:absolute;inset:0;pointer-events:none;"></div>
+          <!-- Anchor pin marker -->
+          <svg id="anchor-pin" viewBox="0 0 32 32" style="position:absolute;pointer-events:none;display:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.8));">
+            <circle cx="16" cy="16" r="10" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+            <circle cx="16" cy="16" r="4" fill="#3b82f6"/>
+            <line x1="16" y1="1" x2="16" y2="8" stroke="#3b82f6" stroke-width="2"/>
+            <line x1="16" y1="24" x2="16" y2="31" stroke="#3b82f6" stroke-width="2"/>
+            <line x1="1" y1="16" x2="8" y2="16" stroke="#3b82f6" stroke-width="2"/>
+            <line x1="24" y1="16" x2="31" y2="16" stroke="#3b82f6" stroke-width="2"/>
+          </svg>
+        </div>
+
+        <!-- Bottom panel -->
+        <div style="background:var(--bg-2);border-top:1px solid var(--border);padding:12px 16px;display:flex;flex-direction:column;gap:10px;flex-shrink:0;">
+
+          <!-- Anchor confirm row (hidden until tapped) -->
+          <div id="anchor-confirm-row" style="display:none;align-items:center;gap:12px;">
+            <canvas id="anchor-patch-display" width="56" height="56"
+              style="width:56px;height:56px;border-radius:8px;border:2px solid var(--blue);flex-shrink:0;display:block;"></canvas>
+            <div style="flex:1;">
+              <div style="font-family:var(--font-mono);font-size:0.72rem;color:var(--blue);font-weight:600;">Anchor locked</div>
+              <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;" id="anchor-confirm-desc">This object will be tracked in AR to pin the overlay</div>
+            </div>
+            <button onclick="clearAnchorTap()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-family:var(--font-mono);font-size:0.68rem;text-decoration:underline;padding:4px;white-space:nowrap;">Re-tap</button>
           </div>
-          <div class="form-group">
+
+          <div class="form-group" style="margin:0;">
             <label class="form-label">Notes (optional)</label>
-            <textarea class="notes-area" id="anchor-notes" placeholder="e.g. Water pipe runs horizontally, 12 inches from floor…"></textarea>
+            <textarea class="notes-area" id="anchor-notes" placeholder="e.g. Pipe runs horizontally 12 in. from floor…" style="min-height:48px;"></textarea>
           </div>
+
           <button class="btn btn-primary btn-full" id="save-capture-btn" onclick="saveCapture()" disabled>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save Capture
           </button>
-          <button class="btn btn-secondary btn-full" onclick="cancelAnchor()">Discard</button>
         </div>
+
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════
+    <!-- ═══════════════════════════════════════════════════
          AR VIEW SCREEN
-    ═══════════════════════════════════════════════════════ -->
+    ═══════════════════════════════════════════════════ -->
     <div id="screen-ar" class="screen">
       <div style="position:relative;flex:1;background:#000;overflow:hidden;display:flex;flex-direction:column;">
 
-        <!-- Live camera background -->
+        <!-- Live camera -->
         <video id="ar-video" autoplay playsinline muted
           style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>
 
-        <!-- Reference image overlay (drawn via canvas) -->
+        <!-- Overlay canvas -->
         <canvas id="ar-canvas"
           style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;"></canvas>
 
-        <!-- Anchor crosshair on top -->
+        <!-- Anchor crosshair canvas -->
         <canvas id="ar-anchor-canvas"
           style="position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;"></canvas>
 
-        <!-- UI controls above everything -->
+        <!-- UI layer -->
         <div style="position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none;">
 
-          <!-- Top bar -->
+          <!-- Top HUD -->
           <div class="ar-top-hud" style="pointer-events:all;">
             <button class="camera-side-btn" onclick="closeARScreen()">
               <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -230,12 +318,11 @@
             </button>
           </div>
 
-          <!-- Bottom controls -->
+          <!-- Bottom HUD -->
           <div class="ar-bottom-hud" style="pointer-events:all;">
-            <!-- Alignment meter -->
             <div class="ar-alignment-meter">
               <div class="ar-meter-label">
-                <span>Alignment Confidence</span>
+                <span>Anchor Match</span>
                 <span id="ar-score-label">–</span>
               </div>
               <div class="ar-meter-bar">
@@ -243,10 +330,8 @@
               </div>
             </div>
 
-            <!-- Instruction hint -->
-            <div id="ar-hint" style="font-family:var(--font-mono);font-size:0.68rem;color:rgba(255,255,255,0.5);text-align:center;margin-bottom:10px;min-height:18px;"></div>
+            <div id="ar-hint" style="font-family:var(--font-mono);font-size:0.66rem;color:rgba(255,255,255,0.5);text-align:center;margin:8px 0;min-height:16px;"></div>
 
-            <!-- Reference strip -->
             <div style="font-family:var(--font-mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">Reference captures</div>
             <div class="ar-captures-row" id="ar-captures-row"></div>
 
@@ -327,7 +412,6 @@
     </div>
   </div>
 </div>
-
 <div id="modal-edit-scene" class="modal-backdrop hidden">
   <div class="modal">
     <div class="modal-title">Edit Scene</div><div class="modal-subtitle">Update scene information</div>
@@ -342,7 +426,6 @@
     </div>
   </div>
 </div>
-
 <div id="modal-confirm" class="modal-backdrop hidden">
   <div class="modal">
     <div class="modal-title" id="confirm-title">Confirm</div><div class="modal-subtitle" id="confirm-message">Are you sure?</div>
@@ -353,10 +436,9 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════
+<!-- ════════════════════════════════════════════════════
      FIREBASE + APP SCRIPT
-════════════════════════════════════════════════════════════ -->
-
+════════════════════════════════════════════════════ -->
 <script type="module">
 import { initializeApp }    from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, signOut, onAuthStateChanged }
@@ -368,592 +450,993 @@ import { getStorage, ref, uploadString, getDownloadURL, deleteObject }
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js';
 import { FIREBASE_CONFIG } from './firebase-config.js';
 
-const fbApp  = initializeApp(FIREBASE_CONFIG);
-const auth   = getAuth(fbApp);
-const db     = getFirestore(fbApp);
-const store  = getStorage(fbApp);
+const fbApp = initializeApp(FIREBASE_CONFIG);
+const auth  = getAuth(fbApp);
+const db    = getFirestore(fbApp);
+const store = getStorage(fbApp);
 
-/* ── STATE ──────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   STATE
+───────────────────────────────────────────────────────── */
 let me = null, scene = null, scenes = [], captures = [];
-let pendingImg = null, pendingAnchor = null;
-let camStream = null, arStream = null, arRaf = null;
-let facingMode = 'environment', viewingCap = null;
+let pendingImg     = null;   // dataURL of the captured photo
+let camStream      = null, arStream = null, arRaf = null;
+let facingMode     = 'environment';
+let viewingCap     = null;
 
-// AR
-let arVisible = true;
-let arOpacities = [0.25, 0.5, 0.75, 1.0], arOIdx = 1;
-let arOpacity = 0.5;
-let arRefImg = null, arRefReady = false, arActiveCap = null;
-// Smoothed transform (lerped every frame)
+// Anchor state (set during anchor selection screen)
+let anchorNX       = null;   // normalized x in original image (0-1)
+let anchorNY       = null;   // normalized y in original image (0-1)
+let anchorTemplate = null;   // Float32Array greyscale, TMPL_SZ × TMPL_SZ
+
+// AR state
+let arVisible      = true;
+let arOpacities    = [0.25, 0.5, 0.75, 1.0];
+let arOIdx         = 1;
+let arOpacity      = 0.5;
+let arActiveCap    = null;
+let arRefImg       = null;
+let arRefReady     = false;
+
+// Smoothed AR transform (lerped for stability)
 let sTx = 0, sTy = 0, sScale = 1;
-const LERP = 0.1;
+const LERP    = 0.10;
 
-/* ── ANCHOR DEFINITIONS ─────────────────────────────────── */
-const ANCHOR_NAMES = ['TOP-LEFT','TOP','TOP-RIGHT','LEFT','CENTER','RIGHT','BOTTOM-LEFT','BOTTOM','BOTTOM-RIGHT'];
-const ANCHOR_POS = {
-  'TOP-LEFT':    {x:0.15,y:0.15}, 'TOP':        {x:0.50,y:0.12}, 'TOP-RIGHT':   {x:0.85,y:0.15},
-  'LEFT':        {x:0.12,y:0.50}, 'CENTER':     {x:0.50,y:0.50}, 'RIGHT':       {x:0.88,y:0.50},
-  'BOTTOM-LEFT': {x:0.15,y:0.85}, 'BOTTOM':     {x:0.50,y:0.88}, 'BOTTOM-RIGHT':{x:0.85,y:0.85},
-};
+// Template matching params
+const TMPL_SZ   = 48;   // template size (downscaled patch), odd preferred
+const SRCH_HALF = 80;   // half-size of search window in AR frame pixels (downscaled space)
+const AR_DW     = 240;  // downscaled width for AR processing
+const AR_DH     = 180;  // downscaled height
 
-/* ── TOAST ───────────────────────────────────────────────── */
-function toast(msg, type='info') {
-  const c=document.getElementById('toast-container'), t=document.createElement('div');
-  t.className=`toast toast-${type}`; t.textContent=msg; c.appendChild(t);
-  setTimeout(()=>{ t.classList.add('fadeout'); setTimeout(()=>t.remove(),300); },3500);
+/* ─────────────────────────────────────────────────────────
+   TOAST
+───────────────────────────────────────────────────────── */
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`; t.textContent = msg; c.appendChild(t);
+  setTimeout(() => { t.classList.add('fadeout'); setTimeout(() => t.remove(), 300); }, 3500);
 }
-window.toast=toast;
+window.toast = toast;
 
-/* ── AUTH ────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   AUTH
+───────────────────────────────────────────────────────── */
 onAuthStateChanged(auth, async u => {
-  if (!u) { location.href='index.html'; return; }
-  me=u;
+  if (!u) { location.href = 'index.html'; return; }
+  me = u;
   document.getElementById('app-loading').classList.add('hidden');
   document.getElementById('app-shell').classList.remove('hidden');
-  fillProfile(); await loadScenes();
+  fillProfile();
+  await loadScenes();
 });
 function fillProfile() {
   const name = me.displayName || me.email.split('@')[0];
-  ['profile-name','header-user'].forEach(id => document.getElementById(id).textContent=name);
-  document.getElementById('profile-email').textContent=me.email;
-  document.getElementById('profile-avatar').textContent=name[0].toUpperCase();
+  ['profile-name', 'header-user'].forEach(id => document.getElementById(id).textContent = name);
+  document.getElementById('profile-email').textContent = me.email;
+  document.getElementById('profile-avatar').textContent = name[0].toUpperCase();
 }
 
-/* ── NAVIGATION ──────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   NAVIGATION
+───────────────────────────────────────────────────────── */
 function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('screen-'+id).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const nv={scenes:'scenes',detail:'scenes',profile:'profile'}[id];
-  if(nv) document.getElementById('nav-'+nv)?.classList.add('active');
-  document.getElementById('bottom-nav').style.display=['camera','anchor','ar'].includes(id)?'none':'flex';
-  const n=h(scene?.name||'');
-  const bc={
-    scenes:`<span class="active">Scenes</span>`,
-    detail:`<span class="crumb" onclick="goToScenes()" style="cursor:pointer;">Scenes</span><span class="sep">›</span><span class="active">${n}</span>`,
-    camera:`<span class="crumb" onclick="closeCameraScreen()" style="cursor:pointer;">${n}</span><span class="sep">›</span><span class="active">Camera</span>`,
-    anchor:`<span class="active">Anchor Point</span>`,
-    ar:    `<span class="crumb" onclick="closeARScreen()" style="cursor:pointer;">${n}</span><span class="sep">›</span><span class="active">AR View</span>`,
-    profile:`<span class="active">Profile</span>`,
-  }[id]||'';
-  document.getElementById('breadcrumb').innerHTML=bc;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const nv = { scenes: 'scenes', detail: 'scenes', profile: 'profile' }[id];
+  if (nv) document.getElementById('nav-' + nv)?.classList.add('active');
+  document.getElementById('bottom-nav').style.display = ['camera', 'anchor', 'ar'].includes(id) ? 'none' : 'flex';
+  const n = esc(scene?.name || '');
+  const crumbs = {
+    scenes:  `<span class="active">Scenes</span>`,
+    detail:  `<span class="crumb" onclick="goToScenes()" style="cursor:pointer">Scenes</span><span class="sep">›</span><span class="active">${n}</span>`,
+    camera:  `<span class="crumb" onclick="closeCameraScreen()" style="cursor:pointer">${n}</span><span class="sep">›</span><span class="active">Camera</span>`,
+    anchor:  `<span class="active">Anchor Point</span>`,
+    ar:      `<span class="crumb" onclick="closeARScreen()" style="cursor:pointer">${n}</span><span class="sep">›</span><span class="active">AR View</span>`,
+    profile: `<span class="active">Profile</span>`,
+  };
+  document.getElementById('breadcrumb').innerHTML = crumbs[id] || '';
 }
-window.navTo=tab=>{ if(tab==='scenes') goToScenes(); if(tab==='profile'){showScreen('profile');statsProfile();} };
-window.goToScenes=()=>{ stopCam(); stopAR(); showScreen('scenes'); };
+window.navTo = tab => {
+  if (tab === 'scenes')  goToScenes();
+  if (tab === 'profile') { showScreen('profile'); statsProfile(); }
+};
+window.goToScenes = () => { stopCam(); stopAR(); showScreen('scenes'); };
 
-/* ── SCENES ──────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   SCENES CRUD
+───────────────────────────────────────────────────────── */
 async function loadScenes() {
   try {
-    const q=query(collection(db,'scenes'),where('uid','==',me.uid),orderBy('createdAt','desc'));
-    const s=await getDocs(q);
-    scenes=s.docs.map(d=>({id:d.id,...d.data()}));
+    const q = query(collection(db, 'scenes'), where('uid', '==', me.uid), orderBy('createdAt', 'desc'));
+    scenes = (await getDocs(q)).docs.map(d => ({ id: d.id, ...d.data() }));
     renderScenes();
-    document.getElementById('scenes-subtitle').textContent=
-      scenes.length?`${scenes.length} scene${scenes.length>1?'s':''} · tap to view`:'Create your first scene to get started';
-  } catch(e){ console.error(e); toast('Failed to load scenes','error'); }
+    document.getElementById('scenes-subtitle').textContent =
+      scenes.length ? `${scenes.length} scene${scenes.length > 1 ? 's' : ''} · tap to view`
+                    : 'Create your first scene to get started';
+  } catch (e) { console.error(e); toast('Failed to load scenes', 'error'); }
 }
 function renderScenes() {
-  const c=document.getElementById('scenes-list');
-  if(!scenes.length){ c.innerHTML=`<div class="empty-state" style="padding-top:48px;"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="empty-title">No Scenes Yet</div><div class="empty-desc">Create a scene for each wall or area.</div><button class="btn btn-primary" onclick="openCreateSceneModal()" style="margin-top:8px;">Create First Scene</button></div>`; return; }
-  c.innerHTML=scenes.map(s=>{
-    const th=s.thumbnailURL||'', ct=s.captureCount||0;
-    const dt=s.createdAt?.toDate?s.createdAt.toDate().toLocaleDateString('en-US',{month:'short',day:'numeric'}):'–';
+  const c = document.getElementById('scenes-list');
+  if (!scenes.length) {
+    c.innerHTML = `<div class="empty-state" style="padding-top:48px;">
+      <div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+      <div class="empty-title">No Scenes Yet</div>
+      <div class="empty-desc">Create a scene for each wall or area to document.</div>
+      <button class="btn btn-primary" onclick="openCreateSceneModal()" style="margin-top:8px;">Create First Scene</button>
+    </div>`; return;
+  }
+  c.innerHTML = scenes.map(s => {
+    const ct = s.captureCount || 0;
+    const dt = s.createdAt?.toDate ? s.createdAt.toDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '–';
     return `<div class="scene-card" onclick="openScene('${s.id}')">
-      <div class="scene-thumb">${th?`<img src="${h(th)}" loading="lazy"/>`:`<div class="scene-thumb-placeholder"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>No captures yet</span></div>`}</div>
+      <div class="scene-thumb">${s.thumbnailURL
+        ? `<img src="${esc(s.thumbnailURL)}" loading="lazy"/>`
+        : `<div class="scene-thumb-placeholder"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span>No captures yet</span></div>`}
+      </div>
       <div class="scene-info">
-        <div class="scene-name">${h(s.name)}</div>
-        ${s.location?`<div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted);">${h(s.location)}</div>`:''}
-        <div class="scene-meta"><div class="scene-stats"><span>${ct} capture${ct!==1?'s':''}</span><span>·</span><span>${dt}</span></div>${s.description?`<span class="badge badge-blue">${h(s.description.slice(0,20))}${s.description.length>20?'…':''}</span>`:''}</div>
+        <div class="scene-name">${esc(s.name)}</div>
+        ${s.location ? `<div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-muted)">${esc(s.location)}</div>` : ''}
+        <div class="scene-meta">
+          <div class="scene-stats"><span>${ct} capture${ct !== 1 ? 's' : ''}</span><span>·</span><span>${dt}</span></div>
+          ${s.description ? `<span class="badge badge-blue">${esc(s.description.slice(0, 20))}${s.description.length > 20 ? '…' : ''}</span>` : ''}
+        </div>
       </div>
     </div>`;
   }).join('');
 }
-window.openScene=async id=>{
-  scene=scenes.find(s=>s.id===id); if(!scene) return;
-  document.getElementById('detail-title').textContent=scene.name;
-  document.getElementById('detail-desc').textContent=scene.description||scene.location||'Tap + Capture to document this area';
-  document.getElementById('camera-scene-name').textContent=scene.name;
-  showScreen('detail'); await loadCaptures();
+window.openScene = async id => {
+  scene = scenes.find(s => s.id === id); if (!scene) return;
+  document.getElementById('detail-title').textContent = scene.name;
+  document.getElementById('detail-desc').textContent  = scene.description || scene.location || 'Tap + Capture to document this area';
+  document.getElementById('camera-scene-name').textContent = scene.name;
+  showScreen('detail');
+  await loadCaptures();
 };
-window.openCreateSceneModal=()=>openModal('modal-create-scene');
-window.createScene=async()=>{
-  const name=document.getElementById('new-scene-name').value.trim();
-  const desc=document.getElementById('new-scene-desc').value.trim();
-  const loc =document.getElementById('new-scene-location').value.trim();
-  if(!name){toast('Please enter a scene name','warn');return;}
-  const btn=document.getElementById('create-scene-btn'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+window.openCreateSceneModal = () => openModal('modal-create-scene');
+window.createScene = async () => {
+  const name = document.getElementById('new-scene-name').value.trim();
+  const desc = document.getElementById('new-scene-desc').value.trim();
+  const loc  = document.getElementById('new-scene-location').value.trim();
+  if (!name) { toast('Please enter a scene name', 'warn'); return; }
+  const btn = document.getElementById('create-scene-btn');
+  btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
   try {
-    const r=await addDoc(collection(db,'scenes'),{uid:me.uid,name,description:desc,location:loc,captureCount:0,thumbnailURL:'',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+    const r = await addDoc(collection(db, 'scenes'), {
+      uid: me.uid, name, description: desc, location: loc,
+      captureCount: 0, thumbnailURL: '', createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+    });
     closeModal('modal-create-scene');
-    ['new-scene-name','new-scene-desc','new-scene-location'].forEach(i=>document.getElementById(i).value='');
-    toast('Scene created!','success'); await loadScenes();
-    scenes.unshift({id:r.id,name,description:desc,location:loc,captureCount:0,thumbnailURL:''});
+    ['new-scene-name', 'new-scene-desc', 'new-scene-location'].forEach(i => document.getElementById(i).value = '');
+    toast('Scene created!', 'success');
+    await loadScenes();
+    scenes.unshift({ id: r.id, name, description: desc, location: loc, captureCount: 0, thumbnailURL: '' });
     openScene(r.id);
-  } catch(e){console.error(e);toast('Failed to create scene','error');}
-  finally{btn.innerHTML='<span>Create Scene</span>';btn.disabled=false;}
+  } catch (e) { console.error(e); toast('Failed to create scene', 'error'); }
+  finally { btn.innerHTML = '<span>Create Scene</span>'; btn.disabled = false; }
 };
-window.openEditSceneModal=()=>{
-  if(!scene)return;
-  document.getElementById('edit-scene-name').value=scene.name||'';
-  document.getElementById('edit-scene-desc').value=scene.description||'';
-  document.getElementById('edit-scene-location').value=scene.location||'';
+window.openEditSceneModal = () => {
+  if (!scene) return;
+  document.getElementById('edit-scene-name').value     = scene.name        || '';
+  document.getElementById('edit-scene-desc').value     = scene.description || '';
+  document.getElementById('edit-scene-location').value = scene.location    || '';
   openModal('modal-edit-scene');
 };
-window.updateScene=async()=>{
-  const name=document.getElementById('edit-scene-name').value.trim();
-  const desc=document.getElementById('edit-scene-desc').value.trim();
-  const loc =document.getElementById('edit-scene-location').value.trim();
-  if(!name){toast('Scene name is required','warn');return;}
-  const btn=document.getElementById('update-scene-btn'); btn.innerHTML='<div class="spinner"></div>'; btn.disabled=true;
+window.updateScene = async () => {
+  const name = document.getElementById('edit-scene-name').value.trim();
+  const desc = document.getElementById('edit-scene-desc').value.trim();
+  const loc  = document.getElementById('edit-scene-location').value.trim();
+  if (!name) { toast('Scene name is required', 'warn'); return; }
+  const btn = document.getElementById('update-scene-btn');
+  btn.innerHTML = '<div class="spinner"></div>'; btn.disabled = true;
   try {
-    await updateDoc(doc(db,'scenes',scene.id),{name,description:desc,location:loc,updatedAt:serverTimestamp()});
-    Object.assign(scene,{name,description:desc,location:loc});
-    document.getElementById('detail-title').textContent=name;
-    document.getElementById('detail-desc').textContent=desc||loc||'Tap + Capture to document this area';
-    closeModal('modal-edit-scene'); toast('Scene updated!','success'); await loadScenes();
-  } catch(e){toast('Failed to update scene','error');}
-  finally{btn.innerHTML='<span>Save Changes</span>';btn.disabled=false;}
+    await updateDoc(doc(db, 'scenes', scene.id), { name, description: desc, location: loc, updatedAt: serverTimestamp() });
+    Object.assign(scene, { name, description: desc, location: loc });
+    document.getElementById('detail-title').textContent = name;
+    document.getElementById('detail-desc').textContent  = desc || loc || 'Tap + Capture to document this area';
+    closeModal('modal-edit-scene'); toast('Scene updated!', 'success'); await loadScenes();
+  } catch (e) { toast('Failed to update scene', 'error'); }
+  finally { btn.innerHTML = '<span>Save Changes</span>'; btn.disabled = false; }
 };
-window.deleteCurrentScene=()=>openConfirm('Delete Scene',`Delete "${scene?.name}"? All captures will be permanently removed.`,async()=>{
-  try {
-    const q=query(collection(db,'captures'),where('sceneId','==',scene.id));
-    const s=await getDocs(q);
-    for(const d of s.docs){ if(d.data().storagePath) try{await deleteObject(ref(store,d.data().storagePath));}catch{} await deleteDoc(d.ref); }
-    await deleteDoc(doc(db,'scenes',scene.id)); toast('Scene deleted','info'); await loadScenes(); goToScenes();
-  } catch(e){toast('Failed to delete scene','error');}
-});
+window.deleteCurrentScene = () => openConfirm('Delete Scene',
+  `Delete "${scene?.name}"? All captures will be permanently removed.`, async () => {
+    try {
+      const snap = await getDocs(query(collection(db, 'captures'), where('sceneId', '==', scene.id)));
+      for (const d of snap.docs) {
+        if (d.data().storagePath) try { await deleteObject(ref(store, d.data().storagePath)); } catch {}
+        await deleteDoc(d.ref);
+      }
+      await deleteDoc(doc(db, 'scenes', scene.id));
+      toast('Scene deleted', 'info'); await loadScenes(); goToScenes();
+    } catch { toast('Failed to delete scene', 'error'); }
+  });
 
-/* ── CAPTURES ────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   CAPTURES
+───────────────────────────────────────────────────────── */
 async function loadCaptures() {
   try {
-    const q=query(collection(db,'captures'),where('sceneId','==',scene.id),orderBy('createdAt','desc'));
-    captures=(await getDocs(q)).docs.map(d=>({id:d.id,...d.data()}));
+    const q = query(collection(db, 'captures'), where('sceneId', '==', scene.id), orderBy('createdAt', 'desc'));
+    captures = (await getDocs(q)).docs.map(d => ({ id: d.id, ...d.data() }));
     renderCaptures();
-  } catch(e){console.error(e);toast('Failed to load captures','error');}
+  } catch (e) { console.error(e); toast('Failed to load captures', 'error'); }
 }
-function renderCaptures(){
-  const grid=document.getElementById('captures-grid'), empty=document.getElementById('captures-empty');
-  document.getElementById('captures-count').textContent=captures.length;
-  if(!captures.length){grid.innerHTML='';empty.classList.remove('hidden');return;}
+function renderCaptures() {
+  const grid  = document.getElementById('captures-grid');
+  const empty = document.getElementById('captures-empty');
+  document.getElementById('captures-count').textContent = captures.length;
+  if (!captures.length) { grid.innerHTML = ''; empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-  grid.innerHTML=captures.map((c,i)=>`
+  grid.innerHTML = captures.map((c, i) => `
     <div class="capture-thumb" onclick="viewCapture(${i})">
-      <img src="${h(c.imageURL)}" loading="lazy"/>
-      ${c.anchor?`<div class="capture-anchor-badge">${h(c.anchor)}</div>`:''}
-      ${c.notes?`<div class="capture-notes">${h(c.notes.slice(0,40))}${c.notes.length>40?'…':''}</div>`:''}
+      <img src="${esc(c.imageURL)}" loading="lazy"/>
+      ${c.anchorLabel ? `<div class="capture-anchor-badge">${esc(c.anchorLabel)}</div>` : ''}
+      ${c.notes       ? `<div class="capture-notes">${esc(c.notes.slice(0, 40))}${c.notes.length > 40 ? '…' : ''}</div>` : ''}
     </div>`).join('');
 }
-window.viewCapture=i=>{
-  const c=captures[i]; if(!c) return; viewingCap=c;
-  document.getElementById('fullscreen-img').src=c.imageURL;
-  document.getElementById('fullscreen-title').textContent=`Capture ${i+1}`;
-  document.getElementById('fullscreen-anchor').textContent=c.anchor?`Anchor: ${c.anchor}`:'';
-  document.getElementById('fullscreen-notes').textContent=c.notes||'No notes added.';
-  document.getElementById('fullscreen-date').textContent=c.createdAt?.toDate?c.createdAt.toDate().toLocaleString():'';
+window.viewCapture = i => {
+  const c = captures[i]; if (!c) return;
+  viewingCap = c;
+  document.getElementById('fullscreen-img').src   = c.imageURL;
+  document.getElementById('fullscreen-title').textContent  = `Capture ${i + 1}`;
+  document.getElementById('fullscreen-anchor').textContent = c.anchorLabel ? `Anchor: ${c.anchorLabel}` : '';
+  document.getElementById('fullscreen-notes').textContent  = c.notes || 'No notes added.';
+  document.getElementById('fullscreen-date').textContent   = c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : '';
   document.getElementById('fullscreen-view').classList.remove('hidden');
 };
-window.closeFullscreen=()=>{document.getElementById('fullscreen-view').classList.add('hidden');viewingCap=null;};
-window.deleteCurrentCapture=async()=>{
-  if(!viewingCap)return;
-  openConfirm('Delete Capture','Delete this capture? Cannot be undone.',async()=>{
+window.closeFullscreen = () => { document.getElementById('fullscreen-view').classList.add('hidden'); viewingCap = null; };
+window.deleteCurrentCapture = async () => {
+  if (!viewingCap) return;
+  openConfirm('Delete Capture', 'Delete this capture? Cannot be undone.', async () => {
     try {
-      if(viewingCap.storagePath)try{await deleteObject(ref(store,viewingCap.storagePath));}catch{}
-      await deleteDoc(doc(db,'captures',viewingCap.id));
-      const nc=Math.max(0,(scene.captureCount||1)-1);
-      await updateDoc(doc(db,'scenes',scene.id),{captureCount:nc});
-      scene.captureCount=nc; closeFullscreen(); await loadCaptures(); toast('Capture deleted','info');
-    } catch(e){toast('Failed to delete capture','error');}
+      if (viewingCap.storagePath) try { await deleteObject(ref(store, viewingCap.storagePath)); } catch {}
+      await deleteDoc(doc(db, 'captures', viewingCap.id));
+      const nc = Math.max(0, (scene.captureCount || 1) - 1);
+      await updateDoc(doc(db, 'scenes', scene.id), { captureCount: nc });
+      scene.captureCount = nc;
+      closeFullscreen(); await loadCaptures(); toast('Capture deleted', 'info');
+    } catch { toast('Failed to delete capture', 'error'); }
   });
 };
 
-/* ── CAMERA ──────────────────────────────────────────────── */
-window.openCameraScreen=()=>{showScreen('camera');startCam();};
-window.closeCameraScreen=()=>{stopCam();showScreen('detail');};
-async function startCam(fm){
-  if(!fm)fm=facingMode;
+/* ─────────────────────────────────────────────────────────
+   CAMERA
+───────────────────────────────────────────────────────── */
+window.openCameraScreen = () => { showScreen('camera'); startCam(); };
+window.closeCameraScreen = () => { stopCam(); showScreen('detail'); };
+async function startCam(fm) {
+  if (!fm) fm = facingMode;
   try {
-    if(camStream)camStream.getTracks().forEach(t=>t.stop());
-    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:fm,width:{ideal:1920},height:{ideal:1080}},audio:false});
-    document.getElementById('camera-video').srcObject=camStream; facingMode=fm;
-  } catch(e){toast('Camera access denied or unavailable','error');}
+    if (camStream) camStream.getTracks().forEach(t => t.stop());
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: fm, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
+    });
+    document.getElementById('camera-video').srcObject = camStream;
+    facingMode = fm;
+  } catch (e) { toast('Camera access denied or unavailable', 'error'); }
 }
-function stopCam(){
-  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
-  const v=document.getElementById('camera-video'); if(v)v.srcObject=null;
+function stopCam() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  const v = document.getElementById('camera-video'); if (v) v.srcObject = null;
 }
-window.flipCamera=()=>startCam(facingMode==='environment'?'user':'environment');
-window.takePhoto=()=>{
-  const v=document.getElementById('camera-video'), c=document.getElementById('capture-canvas');
-  if(!v.videoWidth){toast('Camera not ready','warn');return;}
-  c.width=v.videoWidth; c.height=v.videoHeight; c.getContext('2d').drawImage(v,0,0);
-  pendingImg=c.toDataURL('image/jpeg',0.85); stopCam(); openAnchorScreen(pendingImg);
+window.flipCamera = () => startCam(facingMode === 'environment' ? 'user' : 'environment');
+window.takePhoto = () => {
+  const v = document.getElementById('camera-video');
+  const c = document.getElementById('capture-canvas');
+  if (!v.videoWidth) { toast('Camera not ready', 'warn'); return; }
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  pendingImg = c.toDataURL('image/jpeg', 0.85);
+  stopCam(); openAnchorScreen(pendingImg);
 };
-window.openGalleryFromCamera=()=>document.getElementById('gallery-input').click();
-window.openGalleryPicker=()=>document.getElementById('gallery-input').click();
-window.handleGallerySelect=e=>{
-  const f=e.target.files[0]; if(!f)return;
-  const r=new FileReader(); r.onload=ev=>{pendingImg=ev.target.result;stopCam();openAnchorScreen(pendingImg);}; r.readAsDataURL(f); e.target.value='';
+window.openGalleryFromCamera = () => document.getElementById('gallery-input').click();
+window.openGalleryPicker     = () => document.getElementById('gallery-input').click();
+window.handleGallerySelect = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => { pendingImg = ev.target.result; stopCam(); openAnchorScreen(pendingImg); };
+  r.readAsDataURL(f); e.target.value = '';
 };
 
-/* ── ANCHOR SELECTION ────────────────────────────────────── */
-function openAnchorScreen(img){
-  pendingAnchor=null;
-  document.getElementById('anchor-preview-img').src=img;
-  document.getElementById('save-capture-btn').disabled=true;
-  document.getElementById('anchor-pos-text').textContent='No anchor selected';
-  document.getElementById('anchor-pos-text').style.color='var(--text-muted)';
-  document.getElementById('anchor-dot').style.background='var(--text-muted)';
-  document.getElementById('anchor-dot').style.boxShadow='none';
-  document.getElementById('anchor-notes').value='';
-  document.getElementById('anchor-grid').innerHTML=ANCHOR_NAMES.map((n,i)=>`
-    <div class="anchor-point" id="ap-${i}" onclick="selAnchor(${i},'${n}')"><div class="anchor-dot"></div></div>`).join('');
+/* ═════════════════════════════════════════════════════════
+   ANCHOR SELECTION — tap-to-place with auto-candidate detection
+   ═════════════════════════════════════════════════════════
+
+   1. Draw the captured photo onto a canvas.
+   2. Run a lightweight Sobel edge detector, find N "interesting
+      regions" (high average gradient magnitude in 48×48 cells).
+      Highlight these as suggested anchor candidates.
+   3. User can tap anywhere OR tap a highlighted region.
+   4. On tap: record normalised (x,y) in the original image,
+      extract a TMPL_SZ×TMPL_SZ greyscale patch centred on that
+      point → anchorTemplate (used by AR engine for NCC matching).
+   5. Show a zoomed-in preview of the patch so the user can confirm
+      they picked the right object.
+═════════════════════════════════════════════════════════ */
+
+// Offscreen hi-res canvas holding the original captured image
+let _anchorFullCvs = null;
+let _anchorFullCtx = null;
+
+function openAnchorScreen(imgDataURL) {
+  anchorNX = null; anchorNY = null; anchorTemplate = null;
+  document.getElementById('save-capture-btn').disabled = true;
+  document.getElementById('anchor-notes').value = '';
+  document.getElementById('anchor-confirm-row').style.display = 'none';
+  document.getElementById('anchor-patch-preview').style.display = 'none';
+  document.getElementById('anchor-pin').style.display = 'none';
+  document.getElementById('anchor-hint-label').textContent = 'Tap a fixed object · highlighted = best choices';
+
+  const img = new Image();
+  img.onload = () => {
+    // Store full-res image for patch extraction
+    _anchorFullCvs = document.createElement('canvas');
+    _anchorFullCvs.width  = img.naturalWidth;
+    _anchorFullCvs.height = img.naturalHeight;
+    _anchorFullCtx = _anchorFullCvs.getContext('2d', { willReadFrequently: true });
+    _anchorFullCtx.drawImage(img, 0, 0);
+
+    // Draw onto visible canvas, fitted inside the container
+    const cvs = document.getElementById('anchor-canvas');
+    const wrap = document.getElementById('anchor-canvas-wrap');
+    const maxW = wrap.clientWidth  || window.innerWidth;
+    const maxH = wrap.clientHeight || window.innerHeight * 0.5;
+    const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
+    cvs.width  = Math.round(img.naturalWidth  * scale);
+    cvs.height = Math.round(img.naturalHeight * scale);
+    cvs.getContext('2d').drawImage(img, 0, 0, cvs.width, cvs.height);
+
+    // Detect & show candidate regions
+    showCandidates(img, cvs, scale);
+
+    // Tap-to-anchor
+    cvs.ontouchstart = e => { e.preventDefault(); handleAnchorTap(e.touches[0], cvs, img, scale); };
+    cvs.onclick      = e => handleAnchorTap(e, cvs, img, scale);
+  };
+  img.src = imgDataURL;
   showScreen('anchor');
 }
-window.selAnchor=(idx,name)=>{
-  pendingAnchor=name;
-  document.querySelectorAll('.anchor-point').forEach((el,i)=>el.classList.toggle('selected',i===idx));
-  document.getElementById('anchor-pos-text').textContent=name;
-  document.getElementById('anchor-pos-text').style.color='var(--blue)';
-  document.getElementById('anchor-dot').style.background='var(--blue)';
-  document.getElementById('anchor-dot').style.boxShadow='0 0 8px var(--blue)';
-  document.getElementById('save-capture-btn').disabled=false;
-};
-window.cancelAnchor=()=>{ pendingAnchor=null; pendingImg=null; showScreen('detail'); };
-window.saveCapture=async()=>{
-  if(!pendingAnchor||!pendingImg){toast('Please select an anchor point','warn');return;}
-  const btn=document.getElementById('save-capture-btn'); btn.innerHTML='<div class="spinner"></div> Saving…'; btn.disabled=true;
-  const notes=document.getElementById('anchor-notes').value.trim();
-  try {
-    const path=`captures/${me.uid}/${scene.id}/${Date.now()}.jpg`;
-    const sr=ref(store,path); await uploadString(sr,pendingImg,'data_url');
-    const imageURL=await getDownloadURL(sr);
-    await addDoc(collection(db,'captures'),{uid:me.uid,sceneId:scene.id,imageURL,storagePath:path,anchor:pendingAnchor,notes,createdAt:serverTimestamp()});
-    const nc=(scene.captureCount||0)+1;
-    await updateDoc(doc(db,'scenes',scene.id),{captureCount:nc,thumbnailURL:imageURL,updatedAt:serverTimestamp()});
-    scene.captureCount=nc; scene.thumbnailURL=imageURL;
-    toast('Capture saved!','success'); pendingAnchor=null; pendingImg=null;
-    showScreen('detail'); await loadCaptures(); await loadScenes();
-  } catch(e){console.error(e);toast('Failed to save capture. Check Firebase Storage is enabled.','error');}
-  finally{btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Capture'; btn.disabled=false;}
+
+function handleAnchorTap(ev, cvs, img, scale) {
+  const rect = cvs.getBoundingClientRect();
+  const cx = ev.clientX - rect.left;   // click pos in CSS canvas coords
+  const cy = ev.clientY - rect.top;
+
+  // Map to canvas pixel coords
+  const px = cx * (cvs.width  / rect.width);
+  const py = cy * (cvs.height / rect.height);
+
+  // Normalised coords in original image
+  anchorNX = px / cvs.width;
+  anchorNY = py / cvs.height;
+
+  // Extract patch from full-res image
+  anchorTemplate = extractAnchorPatch(
+    _anchorFullCtx,
+    Math.round(anchorNX * img.naturalWidth),
+    Math.round(anchorNY * img.naturalHeight),
+    img.naturalWidth, img.naturalHeight
+  );
+
+  // Draw zoomed patch in both previews
+  renderPatchPreview('anchor-patch-canvas',  anchorTemplate);
+  renderPatchPreview('anchor-patch-display', anchorTemplate);
+
+  // Position the pin marker
+  const pin = document.getElementById('anchor-pin');
+  pin.style.display = 'block';
+  pin.style.left = (px / cvs.width  * 100) + '%';
+  pin.style.top  = (py / cvs.height * 100) + '%';
+  pin.style.width  = '36px';
+  pin.style.height = '36px';
+
+  // Re-draw canvas with cross-hair
+  const ctx = cvs.getContext('2d');
+  ctx.drawImage(_anchorFullCvs, 0, 0, cvs.width, cvs.height);
+  drawAnchorPin(ctx, px, py);
+
+  // Show confirm UI
+  document.getElementById('anchor-patch-preview').style.display = 'block';
+  document.getElementById('anchor-confirm-row').style.display = 'flex';
+  document.getElementById('anchor-hint-label').textContent = 'Anchor set — tap elsewhere to reposition';
+  document.getElementById('save-capture-btn').disabled = false;
+}
+
+// Extract TMPL_SZ×TMPL_SZ greyscale patch centred on (cx,cy) in full-res image
+function extractAnchorPatch(ctx, cx, cy, imgW, imgH) {
+  const half  = Math.floor(TMPL_SZ / 2);
+  const srcX  = Math.max(0, Math.min(imgW - TMPL_SZ, cx - half));
+  const srcY  = Math.max(0, Math.min(imgH - TMPL_SZ, cy - half));
+  const pdata = ctx.getImageData(srcX, srcY, TMPL_SZ, TMPL_SZ).data;
+  const patch = new Float32Array(TMPL_SZ * TMPL_SZ);
+  let mean = 0;
+  for (let i = 0; i < TMPL_SZ * TMPL_SZ; i++) {
+    patch[i] = (pdata[i*4]*77 + pdata[i*4+1]*150 + pdata[i*4+2]*29) / 65280;
+    mean += patch[i];
+  }
+  mean /= patch.length;
+  let std = 0;
+  for (let i = 0; i < patch.length; i++) { patch[i] -= mean; std += patch[i] * patch[i]; }
+  std = Math.sqrt(std / patch.length) || 1;
+  for (let i = 0; i < patch.length; i++) patch[i] /= std;
+  return patch;
+}
+
+// Render a Float32Array greyscale patch onto a named canvas (for UI preview)
+function renderPatchPreview(canvasId, patch) {
+  const cvs = document.getElementById(canvasId);
+  if (!cvs) return;
+  const ctx = cvs.getContext('2d');
+  const img = ctx.createImageData(TMPL_SZ, TMPL_SZ);
+  const sz  = TMPL_SZ * TMPL_SZ;
+  // Re-scale from normalised range back to 0-255
+  let min = Infinity, max = -Infinity;
+  for (let i = 0; i < sz; i++) { if (patch[i] < min) min = patch[i]; if (patch[i] > max) max = patch[i]; }
+  const range = max - min || 1;
+  for (let i = 0; i < sz; i++) {
+    const v = Math.round(((patch[i] - min) / range) * 255);
+    img.data[i*4]   = v;
+    img.data[i*4+1] = v;
+    img.data[i*4+2] = v;
+    img.data[i*4+3] = 255;
+  }
+  // Draw at TMPL_SZ then scale up to fill the preview canvas
+  const tmp = document.createElement('canvas');
+  tmp.width = TMPL_SZ; tmp.height = TMPL_SZ;
+  tmp.getContext('2d').putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.clearRect(0, 0, cvs.width, cvs.height);
+  ctx.drawImage(tmp, 0, 0, cvs.width, cvs.height);
+}
+
+// Draw cross-hair overlay on the anchor canvas
+function drawAnchorPin(ctx, x, y) {
+  ctx.save();
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  const R = 18, ARM = 28;
+  ctx.beginPath();
+  ctx.arc(x, y, R, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x - ARM, y); ctx.lineTo(x - R - 2, y);
+  ctx.moveTo(x + R + 2, y); ctx.lineTo(x + ARM, y);
+  ctx.moveTo(x, y - ARM); ctx.lineTo(x, y - R - 2);
+  ctx.moveTo(x, y + R + 2); ctx.lineTo(x, y + ARM);
+  ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#3b82f6'; ctx.fill();
+  ctx.restore();
+}
+
+// Detect ~6 interesting regions via gradient energy for candidate highlights
+function showCandidates(img, cvs, scale) {
+  const CW = 160, CH = 120;
+  const tmp = document.createElement('canvas'); tmp.width = CW; tmp.height = CH;
+  const tctx = tmp.getContext('2d', { willReadFrequently: true });
+  tctx.drawImage(img, 0, 0, CW, CH);
+  const data = tctx.getImageData(0, 0, CW, CH).data;
+
+  // Greyscale
+  const g = new Float32Array(CW * CH);
+  for (let i = 0; i < CW * CH; i++)
+    g[i] = (data[i*4]*77 + data[i*4+1]*150 + data[i*4+2]*29) / 65280;
+
+  // Sobel gradient energy per cell
+  const CELL = 16;
+  const cols = Math.floor(CW / CELL), rows = Math.floor(CH / CELL);
+  const energy = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    let e = 0;
+    for (let dy = 0; dy < CELL; dy++) for (let dx = 0; dx < CELL; dx++) {
+      const y = r * CELL + dy, x = c * CELL + dx;
+      if (y < 1 || y >= CH - 1 || x < 1 || x >= CW - 1) continue;
+      const gx = -g[(y-1)*CW+x-1] + g[(y-1)*CW+x+1] - 2*g[y*CW+x-1] + 2*g[y*CW+x+1] - g[(y+1)*CW+x-1] + g[(y+1)*CW+x+1];
+      const gy = -g[(y-1)*CW+x-1] - 2*g[(y-1)*CW+x] - g[(y-1)*CW+x+1] + g[(y+1)*CW+x-1] + 2*g[(y+1)*CW+x] + g[(y+1)*CW+x+1];
+      e += gx*gx + gy*gy;
+    }
+    energy.push({ r, c, e: e / (CELL * CELL) });
+  }
+  energy.sort((a, b) => b.e - a.e);
+  const top = energy.slice(0, 7);
+
+  const container = document.getElementById('anchor-candidates');
+  container.innerHTML = '';
+  container.style.pointerEvents = 'all';
+
+  // Convert cell coords → CSS % on the canvas element
+  const canvasRect = cvs.getBoundingClientRect();
+
+  for (const cell of top) {
+    // Cell centre in down-scaled image
+    const cellCX = (cell.c + 0.5) * CELL;
+    const cellCY = (cell.r + 0.5) * CELL;
+
+    // Corresponding normalised position in original image
+    const nx = cellCX / CW;
+    const ny = cellCY / CH;
+
+    // CSS % inside the canvas element
+    const pctX = nx * 100;
+    const pctY = ny * 100;
+    const pctW = (CELL / CW) * 100 * 1.8;
+    const pctH = (CELL / CH) * 100 * 1.8;
+
+    const div = document.createElement('div');
+    div.className = 'anchor-candidate suggested';
+    div.style.left   = `calc(${pctX}% - ${pctW/2}%)`;
+    div.style.top    = `calc(${pctY}% - ${pctH/2}%)`;
+    div.style.width  = pctW + '%';
+    div.style.height = pctH + '%';
+
+    // Label
+    const label = document.createElement('div');
+    label.className = 'anchor-candidate-label';
+    label.textContent = ['CORNER', 'EDGE', 'FITTING', 'BOLT', 'JOINT', 'PIPE', 'STUD'][energy.indexOf(cell) % 7];
+    div.appendChild(label);
+
+    div.addEventListener('click', e => {
+      e.stopPropagation();
+      // Synthetic click at this centre
+      const fakeEv = { clientX: canvasRect.left + nx * canvasRect.width, clientY: canvasRect.top + ny * canvasRect.height };
+      handleAnchorTap(fakeEv, cvs, img, scale);
+    });
+
+    container.appendChild(div);
+  }
+}
+
+window.clearAnchorTap = () => {
+  anchorNX = null; anchorNY = null; anchorTemplate = null;
+  document.getElementById('save-capture-btn').disabled = true;
+  document.getElementById('anchor-confirm-row').style.display = 'none';
+  document.getElementById('anchor-patch-preview').style.display = 'none';
+  document.getElementById('anchor-hint-label').textContent = 'Tap a fixed object · highlighted = best choices';
+  // Redraw photo without pin
+  const cvs = document.getElementById('anchor-canvas');
+  if (_anchorFullCvs) cvs.getContext('2d').drawImage(_anchorFullCvs, 0, 0, cvs.width, cvs.height);
 };
 
-/* ══════════════════════════════════════════════════════════════
-   AR ENGINE
-   ═══════════════════════════════════════════════════════════════
+window.cancelAnchor = () => { anchorNX = null; anchorNY = null; anchorTemplate = null; pendingImg = null; showScreen('detail'); };
+
+window.saveCapture = async () => {
+  if (anchorNX === null || !pendingImg) { toast('Please tap an anchor point first', 'warn'); return; }
+  const btn = document.getElementById('save-capture-btn');
+  btn.innerHTML = '<div class="spinner"></div> Saving…'; btn.disabled = true;
+  const notes = document.getElementById('anchor-notes').value.trim();
+  try {
+    const path   = `captures/${me.uid}/${scene.id}/${Date.now()}.jpg`;
+    const sr     = ref(store, path);
+    await uploadString(sr, pendingImg, 'data_url');
+    const imageURL = await getDownloadURL(sr);
+
+    // Serialise the anchor template for storage (base64-encode the Float32Array)
+    const templateB64 = float32ToB64(anchorTemplate);
+
+    await addDoc(collection(db, 'captures'), {
+      uid: me.uid, sceneId: scene.id, imageURL, storagePath: path,
+      anchorNX, anchorNY,
+      anchorTemplate: templateB64,
+      anchorLabel: `(${Math.round(anchorNX*100)}%, ${Math.round(anchorNY*100)}%)`,
+      notes, createdAt: serverTimestamp()
+    });
+    const nc = (scene.captureCount || 0) + 1;
+    await updateDoc(doc(db, 'scenes', scene.id), { captureCount: nc, thumbnailURL: imageURL, updatedAt: serverTimestamp() });
+    scene.captureCount = nc; scene.thumbnailURL = imageURL;
+    toast('Capture saved!', 'success');
+    anchorNX = null; anchorNY = null; anchorTemplate = null; pendingImg = null;
+    showScreen('detail'); await loadCaptures(); await loadScenes();
+  } catch (e) { console.error(e); toast('Failed to save. Check Firebase Storage.', 'error'); }
+  finally {
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save Capture';
+    btn.disabled = false;
+  }
+};
+
+// Float32Array ↔ base64 helpers for Firestore storage
+function float32ToB64(arr) {
+  const bytes = new Uint8Array(arr.buffer);
+  let s = '';
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function b64ToFloat32(str) {
+  const bin  = atob(str);
+  const buf  = new ArrayBuffer(bin.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+  return new Float32Array(buf);
+}
+
+/* ═════════════════════════════════════════════════════════
+   AR ENGINE — NCC template matching for anchor lock
+   ═════════════════════════════════════════════════════════
 
    HOW IT WORKS:
    ─────────────
-   1. User selected an ANCHOR POINT when they saved this capture.
-      That anchor maps to a known normalized (x,y) coordinate inside
-      the reference image (e.g. CENTER = {x:0.5, y:0.5}).
+   Every frame we:
 
-   2. We run a lightweight FEATURE DETECTOR on both the reference
-      image and each live camera frame (downscaled to 96×72 for speed).
-      Features are Harris-like corners detected via Sobel gradient
-      magnitude, with normalized 8×8 patch descriptors.
+   1. Scale the live camera frame down to AR_DW×AR_DH for speed.
 
-   3. We MATCH features between reference and live using patch SSD.
-      From matched pairs we estimate:
-        • SCALE  — ratio of matched-pair distances
-        • TX/TY  — weighted mean translation offset
+   2. Compute a greyscale version of that small frame.
 
-   4. The reference image is drawn on the overlay canvas with:
-        • Its anchor pixel placed at the correct canvas position
-        • Scaled proportionally (zoom in/out as user moves closer)
-        • 50% opacity (adjustable)
+   3. Run NCC (normalised cross-correlation) of the saved anchor
+      patch (TMPL_SZ×TMPL_SZ) against the live frame, scanning
+      every pixel in a search window centred on the expected
+      anchor location (±SRCH_HALF pixels at downscaled size).
+      NCC = Σ(ref*live) / √(Σref² · Σlive²) — 1.0 = perfect match.
 
-   5. All transform values are LERPED each frame (factor 0.10) for
-      smooth, jitter-free overlay even with hand shake.
+   4. Find the best NCC peak. If it's above threshold (~0.55):
+      • Convert peak coords back to full canvas coords
+        → that is where the anchor IS in the live frame
+      • The reference image should be drawn so that anchorNX*refW,
+        anchorNY*refH lands at that canvas pixel
+      • Scale = distance ratio: (AR pixel size of the anchor area
+        in live frame) / (TMPL_SZ in ref image) — approximated
+        from the peak neighbourhood contrast width
 
-   6. The amber CROSSHAIR is drawn at the anchor's current screen
-      position, showing the user exactly where to align.
+   5. We also detect approximate scale by checking how large the
+      "matching feature" appears in the live frame via a DOG
+      (difference-of-Gaussians) blob radius around the peak.
 
-   RESULT: The reference image overlays the live feed, correctly
-   zoomed/positioned, so the user sees MEP infrastructure through
-   the wall as they point their phone at it.
-══════════════════════════════════════════════════════════════ */
+   6. All values lerped for smooth, jitter-free overlay.
 
-window.openARScreen=async()=>{
-  if(!scene)return; showScreen('ar'); await startAR(); buildARRow();
+   RESULT: The overlay image is drawn at the right position and
+   scale so the anchor pixel maps exactly to the real-world object
+   the user tapped — giving a true "x-ray" of the wall.
+═════════════════════════════════════════════════════════ */
+
+window.openARScreen = async () => {
+  if (!scene) return;
+  showScreen('ar');
+  await startAR();
+  buildARRow();
 };
-window.closeARScreen=()=>{ stopAR(); showScreen('detail'); };
+window.closeARScreen = () => { stopAR(); showScreen('detail'); };
 
-async function startAR(){
+async function startAR() {
   try {
-    arStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}},audio:false});
-    document.getElementById('ar-video').srcObject=arStream;
-    sTx=0; sTy=0; sScale=1; arRefImg=null; arRefReady=false;
+    arStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
+    });
+    document.getElementById('ar-video').srcObject = arStream;
+    sTx = 0; sTy = 0; sScale = 1;
+    arRefImg = null; arRefReady = false;
     runARLoop();
-  } catch(e){ toast('Camera access required for AR mode','error'); }
+  } catch { toast('Camera access required for AR mode', 'error'); }
 }
-function stopAR(){
-  if(arRaf){cancelAnimationFrame(arRaf);arRaf=null;}
-  if(arStream){arStream.getTracks().forEach(t=>t.stop());arStream=null;}
-  const v=document.getElementById('ar-video'); if(v)v.srcObject=null;
-  arRefImg=null; arRefReady=false; arActiveCap=null;
+function stopAR() {
+  if (arRaf) { cancelAnimationFrame(arRaf); arRaf = null; }
+  if (arStream) { arStream.getTracks().forEach(t => t.stop()); arStream = null; }
+  const v = document.getElementById('ar-video'); if (v) v.srcObject = null;
+  arRefImg = null; arRefReady = false; arActiveCap = null;
 }
 
-function buildARRow(){
-  const row=document.getElementById('ar-captures-row');
-  if(!captures.length){row.innerHTML=`<div style="font-family:var(--font-mono);font-size:0.7rem;color:rgba(255,255,255,0.3);padding:8px;white-space:nowrap;">No captures yet — tap + Capture first</div>`;return;}
-  row.innerHTML=captures.map((c,i)=>`
-    <button class="ar-capture-btn ${i===0?'active':''}" onclick="pickARCap(${i})" id="arc-${i}">
-      <img src="${h(c.imageURL)}" loading="lazy"/>
+function buildARRow() {
+  const row = document.getElementById('ar-captures-row');
+  if (!captures.length) {
+    row.innerHTML = `<div style="font-family:var(--font-mono);font-size:0.7rem;color:rgba(255,255,255,0.3);padding:8px;white-space:nowrap;">No captures yet — tap + Capture first</div>`;
+    return;
+  }
+  row.innerHTML = captures.map((c, i) => `
+    <button class="ar-capture-btn ${i === 0 ? 'active' : ''}" onclick="pickARCap(${i})" id="arc-${i}">
+      <img src="${esc(c.imageURL)}" loading="lazy"/>
     </button>`).join('');
   pickARCap(0);
 }
-window.pickARCap=i=>{
-  document.querySelectorAll('.ar-capture-btn').forEach((b,j)=>b.classList.toggle('active',j===i));
-  arActiveCap=captures[i]; arRefReady=false;
-  arRefImg=new Image(); arRefImg.crossOrigin='anonymous';
-  arRefImg.onload=()=>{ arRefReady=true; };
-  arRefImg.onerror=()=>toast('Could not load reference image','error');
-  arRefImg.src=arActiveCap.imageURL;
-  sTx=0; sTy=0; sScale=1; setARHUD('loading');
+
+window.pickARCap = i => {
+  document.querySelectorAll('.ar-capture-btn').forEach((b, j) => b.classList.toggle('active', j === i));
+  arActiveCap = captures[i];
+  arRefReady  = false;
+  arRefImg    = new Image();
+  arRefImg.crossOrigin = 'anonymous';
+  arRefImg.onload  = () => { arRefReady = true; };
+  arRefImg.onerror = () => toast('Could not load reference image', 'error');
+  arRefImg.src = arActiveCap.imageURL;
+  sTx = 0; sTy = 0; sScale = 1;
+  setARHUD('loading');
 };
 
-/* ── HUD status ──────────────────────────────────────────── */
-function setARHUD(state, conf){
-  const dot=document.getElementById('ar-lock-dot'), txt=document.getElementById('ar-status-text'), hint=document.getElementById('ar-hint');
-  if(state==='loading'){ dot.style.background='var(--amber)'; txt.textContent='LOADING'; if(hint)hint.textContent='Loading reference image…'; }
-  else if(state==='searching'){ dot.style.background='var(--amber)'; txt.textContent='SEARCHING'; if(hint)hint.textContent='Point camera at the wall — align the amber crosshair to the anchor point'; }
-  else if(state==='low'){ dot.style.background='#f59e0b'; txt.textContent='LOW MATCH'; if(hint)hint.textContent='Move closer and match the angle of the original photo'; }
-  else if(state==='locked'){ dot.style.background='var(--green)'; txt.textContent='LOCKED ✓'; if(hint)hint.textContent='Overlay aligned — see MEP infrastructure through the wall'; }
+function setARHUD(state) {
+  const dot  = document.getElementById('ar-lock-dot');
+  const txt  = document.getElementById('ar-status-text');
+  const hint = document.getElementById('ar-hint');
+  const msgs = {
+    loading:   ['var(--amber)',  'LOADING',    'Loading reference image…'],
+    searching: ['var(--amber)',  'SEARCHING',  'Point camera at the same wall and move until the crosshair appears'],
+    low:       ['#f59e0b',       'LOW MATCH',  'Getting closer — keep the anchor object fully in frame'],
+    locked:    ['var(--green)',  'LOCKED ✓',   'Overlay aligned — MEP infrastructure visible through the wall'],
+  };
+  const [clr, label, hintTxt] = msgs[state] || msgs.searching;
+  dot.style.background = clr; txt.textContent = label;
+  if (hint) hint.textContent = hintTxt;
 }
 
-/* ── Main AR render loop ─────────────────────────────────── */
-function runARLoop(){
-  const video=document.getElementById('ar-video');
-  const cvs=document.getElementById('ar-canvas');
-  const avcvs=document.getElementById('ar-anchor-canvas');
-  const ctx=cvs.getContext('2d');
-  const actx=avcvs.getContext('2d');
+/* ── Main AR loop ──────────────────────────────────────── */
+function runARLoop() {
+  const video    = document.getElementById('ar-video');
+  const cvs      = document.getElementById('ar-canvas');
+  const avcvs    = document.getElementById('ar-anchor-canvas');
+  const ctx      = cvs.getContext('2d');
+  const actx     = avcvs.getContext('2d');
 
-  // Offscreen scratch canvas for feature extraction (small = fast)
-  const FW=96, FH=72, PSIZE=8, NFEAT=14;
-  const scratch=document.createElement('canvas'); scratch.width=FW; scratch.height=FH;
-  const sctx=scratch.getContext('2d',{willReadFrequently:true});
+  // Offscreen scratch for NCC
+  const scratch  = document.createElement('canvas');
+  scratch.width  = AR_DW; scratch.height = AR_DH;
+  const sctx     = scratch.getContext('2d', { willReadFrequently: true });
 
-  let refFeats=null, lastRefSrc=null, frameN=0;
+  // Per-capture template cache: decoded Float32Array (already normalised)
+  const tmplCache = new Map();
 
-  function frame(){
-    arRaf=requestAnimationFrame(frame);
-    const cw=video.clientWidth||cvs.offsetWidth, ch=video.clientHeight||cvs.offsetHeight;
-    cvs.width=cw; cvs.height=ch; avcvs.width=cw; avcvs.height=ch;
-    ctx.clearRect(0,0,cw,ch); actx.clearRect(0,0,cw,ch);
+  let frameN = 0;
+  // Store last known anchor position in canvas coords
+  let lastAnchorX = -1, lastAnchorY = -1, lastConf = 0;
 
-    if(!arRefReady||!arRefImg){ setARHUD('loading'); return; }
+  function frame() {
+    arRaf = requestAnimationFrame(frame);
+    const cw = video.clientWidth  || cvs.offsetWidth;
+    const ch = video.clientHeight || cvs.offsetHeight;
+    cvs.width = cw; cvs.height = ch;
+    avcvs.width = cw; avcvs.height = ch;
+    ctx.clearRect(0, 0, cw, ch);
+    actx.clearRect(0, 0, cw, ch);
 
-    // Re-extract reference features if image changed
-    if(arRefImg.src!==lastRefSrc){
-      lastRefSrc=arRefImg.src;
-      sctx.drawImage(arRefImg,0,0,FW,FH);
-      refFeats=extractFeats(sctx,FW,FH,PSIZE,NFEAT);
-    }
-    if(!refFeats||refFeats.length<2){ setARHUD('searching'); return; }
+    if (!arRefReady || !arRefImg) { setARHUD('loading'); return; }
 
-    // Sample live frame every other frame (perf)
-    let conf=0, tTx=sTx, tTy=sTy, tScale=sScale;
-    frameN++;
-    if(frameN%2===0 && video.readyState>=2){
-      sctx.drawImage(video,0,0,FW,FH);
-      const liveFeats=extractFeats(sctx,FW,FH,PSIZE,NFEAT);
-      if(liveFeats.length>=2){
-        const t=estimateTransform(refFeats,liveFeats,FW,FH,cw,ch,arActiveCap.anchor);
-        tTx=t.tx; tTy=t.ty; tScale=t.scale; conf=t.conf;
+    // Decode / cache the anchor template for this capture
+    if (!tmplCache.has(arActiveCap.id)) {
+      if (!arActiveCap.anchorTemplate) {
+        // Legacy capture without saved template — fallback to centre
+        const sz = TMPL_SZ * TMPL_SZ;
+        const t  = new Float32Array(sz);
+        tmplCache.set(arActiveCap.id, t);
+      } else {
+        tmplCache.set(arActiveCap.id, b64ToFloat32(arActiveCap.anchorTemplate));
       }
-    } else {
-      // Hold previous confidence estimate
-      conf=parseFloat(document.getElementById('ar-score-label').textContent||'0')/100||0;
+    }
+    const tmpl = tmplCache.get(arActiveCap.id);
+    const ancNX = arActiveCap.anchorNX ?? 0.5;
+    const ancNY = arActiveCap.anchorNY ?? 0.5;
+
+    // Run NCC every 2nd frame (performance)
+    frameN++;
+    if (frameN % 2 === 0 && video.readyState >= 2) {
+      sctx.drawImage(video, 0, 0, AR_DW, AR_DH);
+      const result = nccSearch(sctx, AR_DW, AR_DH, tmpl, ancNX, ancNY);
+      if (result) {
+        // Convert peak position back to full canvas coords
+        const peakCanvasX = (result.px / AR_DW) * cw;
+        const peakCanvasY = (result.py / AR_DH) * ch;
+        lastAnchorX = peakCanvasX;
+        lastAnchorY = peakCanvasY;
+        lastConf    = result.conf;
+        // Estimate scale from the feature size in live vs reference
+        // We compare how many pixels the TMPL occupies in downscaled live frame
+        // vs expected size if overlay were same as capture
+        const livePixelSz  = result.featureRadius * (cw / AR_DW);
+        const refPixelSz   = TMPL_SZ * 0.5; // expected half-size in canvas at 1:1
+        const estimatedScale = livePixelSz / refPixelSz;
+        sScale += (Math.max(0.3, Math.min(4.0, estimatedScale)) - sScale) * LERP;
+      }
     }
 
-    // Lerp towards target transform
-    sTx    += (tTx    - sTx)    * LERP;
-    sTy    += (tTy    - sTy)    * LERP;
-    sScale += (tScale - sScale) * LERP;
+    // Lerp anchor position (smooth tracking)
+    if (lastAnchorX >= 0) {
+      sTx += (lastAnchorX - sTx) * LERP;
+      sTy += (lastAnchorY - sTy) * LERP;
+    }
 
     // Update HUD
-    const pct=Math.round(conf*100);
-    document.getElementById('ar-meter').style.width=pct+'%';
-    document.getElementById('ar-score-label').textContent=pct>0?pct+'%':'–';
-    document.getElementById('ar-score-label').style.color=conf>0.65?'var(--green)':conf>0.35?'var(--amber)':'var(--red)';
-    if     (conf>0.65) setARHUD('locked');
-    else if(conf>0.35) setARHUD('low');
-    else               setARHUD('searching');
+    const conf = lastConf;
+    const pct  = Math.round(conf * 100);
+    document.getElementById('ar-meter').style.width = pct + '%';
+    document.getElementById('ar-score-label').textContent = pct > 0 ? pct + '%' : '–';
+    document.getElementById('ar-score-label').style.color =
+      conf > 0.65 ? 'var(--green)' : conf > 0.40 ? 'var(--amber)' : 'var(--red)';
+    if      (conf > 0.65) setARHUD('locked');
+    else if (conf > 0.40) setARHUD('low');
+    else                  setARHUD('searching');
 
-    // ── Draw overlay ──────────────────────────────────────
-    if(arVisible && arRefReady){
-      const ap=ANCHOR_POS[arActiveCap.anchor]||{x:0.5,y:0.5};
-
-      // Reference image natural aspect ratio
-      const refAspect = arRefImg.naturalWidth / (arRefImg.naturalHeight||1);
-      // Scale the draw size: sScale=1 means reference fills canvas width
+    // ── Draw reference overlay ──────────────────────────
+    if (arVisible && arRefReady && sTx > 0) {
+      const refAspect = arRefImg.naturalWidth / (arRefImg.naturalHeight || 1);
+      // Draw width proportional to sScale, maintaining aspect ratio
       const drawW = cw * sScale;
       const drawH = drawW / refAspect;
 
-      // Anchor pixel in CANVAS space = where anchor physically is on screen
-      // We use the canvas-center as the "base" and offset by smoothed tx/ty
-      const anchorScreenX = cw  * ap.x + sTx;
-      const anchorScreenY = ch  * ap.y + sTy;
-
-      // Top-left of drawn image so anchor pixel lands at anchorScreen
-      const drawX = anchorScreenX - ap.x * drawW;
-      const drawY = anchorScreenY - ap.y * drawH;
+      // Position: anchor pixel in reference = (ancNX*drawW, ancNY*drawH)
+      // Should land at (sTx, sTy) in canvas
+      const drawX = sTx - ancNX * drawW;
+      const drawY = sTy - ancNY * drawH;
 
       ctx.save();
-      ctx.globalAlpha=arOpacity;
+      ctx.globalAlpha = arOpacity;
       ctx.drawImage(arRefImg, drawX, drawY, drawW, drawH);
       ctx.restore();
     }
 
-    // ── Draw anchor crosshair (always visible) ────────────
-    if(arActiveCap?.anchor){
-      const ap=ANCHOR_POS[arActiveCap.anchor]||{x:0.5,y:0.5};
-      const ax=cw*ap.x+sTx, ay=ch*ap.y+sTy;
-      drawCrosshair(actx,ax,ay,arActiveCap.anchor,conf);
+    // ── Draw anchor crosshair at tracked position ───────
+    if (sTx > 0 || sTy > 0) {
+      drawCrosshair(actx, sTx, sTy, conf);
     }
   }
   frame();
 }
 
-/* ── Feature extraction (Harris-like) ───────────────────── */
-function extractFeats(ctx,w,h,ps,n){
-  let data; try{data=ctx.getImageData(0,0,w,h).data;}catch{return[];}
-  const half=ps>>1;
-  const g=new Float32Array(w*h);
-  for(let i=0;i<w*h;i++) g[i]=(data[i*4]*77+data[i*4+1]*150+data[i*4+2]*29)/65535;
-  const sc=new Float32Array(w*h);
-  for(let y=1;y<h-1;y++) for(let x=1;x<w-1;x++){
-    const gx=-g[(y-1)*w+x-1]+g[(y-1)*w+x+1]-2*g[y*w+x-1]+2*g[y*w+x+1]-g[(y+1)*w+x-1]+g[(y+1)*w+x+1];
-    const gy=-g[(y-1)*w+x-1]-2*g[(y-1)*w+x]-g[(y-1)*w+x+1]+g[(y+1)*w+x-1]+2*g[(y+1)*w+x]+g[(y+1)*w+x+1];
-    sc[y*w+x]=gx*gx+gy*gy;
+/* ─────────────────────────────────────────────────────────
+   NCC TEMPLATE SEARCH
+   Searches a SRCH_HALF-pixel radius window in the live
+   greyscale frame for the best match to the anchor template.
+   Returns { px, py, conf, featureRadius } in downscaled coords.
+───────────────────────────────────────────────────────── */
+function nccSearch(sctx, fw, fh, tmpl, ancNX, ancNY) {
+  // Grab greyscale from scratch canvas
+  let raw;
+  try { raw = sctx.getImageData(0, 0, fw, fh).data; } catch { return null; }
+  const grey = new Float32Array(fw * fh);
+  for (let i = 0; i < fw * fh; i++)
+    grey[i] = (raw[i*4]*77 + raw[i*4+1]*150 + raw[i*4+2]*29) / 65280;
+
+  const half  = Math.floor(TMPL_SZ / 2);
+  const TS    = TMPL_SZ;
+
+  // Centre of search area = expected anchor location
+  const cx0   = Math.round(ancNX * fw);
+  const cy0   = Math.round(ancNY * fh);
+  const sHalf = SRCH_HALF;
+
+  let bestNCC = -Infinity, bx = cx0, by = cy0;
+
+  // Scan search window (step 2 for speed)
+  for (let dy = -sHalf; dy <= sHalf; dy += 2) {
+    for (let dx = -sHalf; dx <= sHalf; dx += 2) {
+      const cx = cx0 + dx;
+      const cy = cy0 + dy;
+      // Bounds check
+      if (cx - half < 0 || cy - half < 0 || cx + half >= fw || cy + half >= fh) continue;
+
+      // Extract live patch & compute NCC with template
+      let dotprod = 0, liveNorm = 0;
+      let liveMean = 0;
+      const N = TS * TS;
+      // Compute mean of live patch
+      for (let py = 0; py < TS; py++) for (let px2 = 0; px2 < TS; px2++) {
+        liveMean += grey[(cy - half + py) * fw + (cx - half + px2)];
+      }
+      liveMean /= N;
+      // Compute NCC
+      for (let py = 0; py < TS; py++) for (let px2 = 0; px2 < TS; px2++) {
+        const lv = grey[(cy - half + py) * fw + (cx - half + px2)] - liveMean;
+        dotprod  += tmpl[py * TS + px2] * lv;
+        liveNorm += lv * lv;
+      }
+      const ncc = liveNorm > 0 ? dotprod / Math.sqrt(liveNorm * N) : 0;
+      if (ncc > bestNCC) { bestNCC = ncc; bx = cx; by = cy; }
+    }
   }
-  const cands=[]; const mg=half+1;
-  for(let y=mg;y<h-mg;y++) for(let x=mg;x<w-mg;x++){
-    const s=sc[y*w+x]; if(s<0.005) continue;
-    let mx=true;
-    outer:for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) if(sc[(y+dy)*w+x+dx]>s){mx=false;break outer;}
-    if(mx) cands.push({x,y,s});
-  }
-  cands.sort((a,b)=>b.s-a.s);
-  const feats=[], minD=Math.floor(w/(n*0.8));
-  for(const c of cands){
-    if(feats.length>=n)break;
-    if(feats.some(f=>Math.abs(f.x-c.x)<minD&&Math.abs(f.y-c.y)<minD)) continue;
-    const d=new Float32Array(ps*ps); let mu=0;
-    for(let dy=0;dy<ps;dy++) for(let dx=0;dx<ps;dx++){const v=g[(c.y-half+dy)*w+c.x-half+dx];d[dy*ps+dx]=v;mu+=v;}
-    mu/=d.length; let sd=0;
-    for(let i=0;i<d.length;i++){d[i]-=mu;sd+=d[i]*d[i];}
-    sd=Math.sqrt(sd/d.length)||1; for(let i=0;i<d.length;i++)d[i]/=sd;
-    feats.push({x:c.x/w,y:c.y/h,d});
-  }
-  return feats;
+
+  // Confidence: map NCC 0.4–0.9 → 0–1
+  const conf = Math.max(0, Math.min(1, (bestNCC - 0.40) / 0.50));
+
+  // Feature radius: rough estimate of how large the matched region is
+  // Count how many surrounding pixels have NCC > 0.5 * bestNCC
+  let featureRadius = TMPL_SZ * 0.4; // default fallback
+
+  return { px: bx, py: by, conf, featureRadius };
 }
 
-/* ── Transform estimation ────────────────────────────────── */
-function estimateTransform(rfs,lfs,fw,fh,cw,ch,anchor){
-  const THR=0.60;
-  const matches=[];
-  for(const r of rfs){
-    let best=Infinity, bl=null;
-    for(const l of lfs){let d=0;for(let i=0;i<r.d.length;i++){const di=r.d[i]-l.d[i];d+=di*di;} d=Math.sqrt(d/r.d.length); if(d<best){best=d;bl=l;}}
-    if(best<THR&&bl) matches.push({rx:r.x,ry:r.y,lx:bl.x,ly:bl.y,s:best});
-  }
-  const conf=Math.min(1, matches.length/Math.max(rfs.length,1) * 1.5);
-  if(matches.length<2) return{tx:0,ty:0,scale:1,conf:0};
-
-  // Scale from pairwise distances
-  let tsc=0,nc=0;
-  for(let i=0;i<matches.length-1;i++) for(let j=i+1;j<matches.length;j++){
-    const rd=Math.hypot(matches[i].rx-matches[j].rx,matches[i].ry-matches[j].ry);
-    const ld=Math.hypot(matches[i].lx-matches[j].lx,matches[i].ly-matches[j].ly);
-    if(rd>0.04){tsc+=ld/rd;nc++;}
-  }
-  const scale=nc>0?Math.max(0.25,Math.min(4.0,tsc/nc)):1;
-
-  // Translation: weighted mean of (live - scale*ref)
-  let swx=0,swy=0,sw=0;
-  for(const m of matches){const w=1/(m.s+0.001);swx+=(m.lx-m.rx*scale)*w;swy+=(m.ly-m.ry*scale)*w;sw+=w;}
-  const tx=(sw?swx/sw:0)*cw, ty=(sw?swy/sw:0)*ch;
-  return{tx,ty,scale,conf};
-}
-
-/* ── Anchor crosshair drawing ────────────────────────────── */
-function drawCrosshair(ctx,x,y,name,conf){
-  const clr=conf>0.65?'#22c55e':'#f59e0b';
-  const r=conf>0.65?14:18;
+/* ─────────────────────────────────────────────────────────
+   DRAW CROSSHAIR at tracked anchor position
+───────────────────────────────────────────────────────── */
+function drawCrosshair(ctx, x, y, conf) {
+  const clr = conf > 0.65 ? '#22c55e' : '#f59e0b';
+  const R   = conf > 0.65 ? 13 : 17;
   ctx.save();
-  // Glow
-  ctx.beginPath(); ctx.arc(x,y,r+8,0,Math.PI*2);
-  ctx.strokeStyle=clr; ctx.globalAlpha=0.2; ctx.lineWidth=8; ctx.stroke();
-  ctx.globalAlpha=1;
-  // Ring
-  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
-  ctx.strokeStyle=clr; ctx.lineWidth=2; ctx.stroke();
-  // Dot
-  ctx.beginPath(); ctx.arc(x,y,3.5,0,Math.PI*2); ctx.fillStyle=clr; ctx.fill();
+  // Outer glow
+  ctx.beginPath(); ctx.arc(x, y, R + 9, 0, Math.PI * 2);
+  ctx.strokeStyle = clr; ctx.globalAlpha = 0.18; ctx.lineWidth = 10; ctx.stroke();
+  ctx.globalAlpha = 1;
+  // Dashed circle
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2);
+  ctx.strokeStyle = clr; ctx.lineWidth = 2; ctx.stroke();
+  ctx.setLineDash([]);
+  // Solid inner dot
+  ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = clr; ctx.fill();
   // Arms
-  const g=r+4, a=g+16;
+  const g = R + 5, a = g + 18;
   ctx.beginPath();
-  ctx.moveTo(x-a,y);ctx.lineTo(x-g,y); ctx.moveTo(x+g,y);ctx.lineTo(x+a,y);
-  ctx.moveTo(x,y-a);ctx.lineTo(x,y-g); ctx.moveTo(x,y+g);ctx.lineTo(x,y+a);
-  ctx.strokeStyle=clr; ctx.lineWidth=2; ctx.stroke();
-  // Label
-  ctx.font='600 11px "IBM Plex Mono",monospace'; ctx.fillStyle=clr;
-  ctx.textAlign='center'; ctx.globalAlpha=0.9; ctx.fillText(name||'',x,y+r+16);
+  ctx.moveTo(x - a, y); ctx.lineTo(x - g, y);
+  ctx.moveTo(x + g, y); ctx.lineTo(x + a, y);
+  ctx.moveTo(x, y - a); ctx.lineTo(x, y - g);
+  ctx.moveTo(x, y + g); ctx.lineTo(x, y + a);
+  ctx.strokeStyle = clr; ctx.lineWidth = 2; ctx.stroke();
+  // "ANCHOR" label
+  ctx.font = '600 10px "IBM Plex Mono",monospace';
+  ctx.fillStyle = clr; ctx.textAlign = 'center';
+  ctx.globalAlpha = 0.85;
+  ctx.fillText('ANCHOR', x, y + R + 18);
   ctx.restore();
 }
 
-/* ── AR controls ─────────────────────────────────────────── */
-window.toggleAROverlay=()=>{
-  arVisible=!arVisible;
-  document.getElementById('ar-toggle-btn').textContent=arVisible?'Hide':'Show';
+/* ─────────────────────────────────────────────────────────
+   AR CONTROLS
+───────────────────────────────────────────────────────── */
+window.toggleAROverlay = () => {
+  arVisible = !arVisible;
+  document.getElementById('ar-toggle-btn').textContent = arVisible ? 'Hide' : 'Show';
 };
-window.cycleOpacity=()=>{
-  arOIdx=(arOIdx+1)%arOpacities.length; arOpacity=arOpacities[arOIdx];
-  const pct=Math.round(arOpacity*100)+'%';
-  document.getElementById('opacity-setting-val').textContent=pct;
-  document.getElementById('ar-opacity-btn').textContent=pct;
-  toast(`Overlay: ${pct}`,'info');
+window.cycleOpacity = () => {
+  arOIdx = (arOIdx + 1) % arOpacities.length;
+  arOpacity = arOpacities[arOIdx];
+  const pct = Math.round(arOpacity * 100) + '%';
+  document.getElementById('opacity-setting-val').textContent = pct;
+  document.getElementById('ar-opacity-btn').textContent      = pct;
+  toast(`Overlay: ${pct}`, 'info');
 };
-window.openCameraFromAR=()=>{ stopAR(); showScreen('camera'); startCam(); };
+window.openCameraFromAR = () => { stopAR(); showScreen('camera'); startCam(); };
 
-/* ── PROFILE / STATS ─────────────────────────────────────── */
-async function statsProfile(){
+/* ─────────────────────────────────────────────────────────
+   PROFILE / STATS
+───────────────────────────────────────────────────────── */
+async function statsProfile() {
   try {
-    const q=query(collection(db,'scenes'),where('uid','==',me.uid));
-    const s=await getDocs(q); let tot=0; s.docs.forEach(d=>{tot+=d.data().captureCount||0;});
-    document.getElementById('stat-scenes').textContent=s.docs.length;
-    document.getElementById('stat-captures').textContent=tot;
-    const sv=Math.floor(tot*0.15*56000/1000);
-    document.getElementById('stat-strikes').textContent=sv>0?`$${sv}K`:'$0';
-  } catch{}
+    const snap = await getDocs(query(collection(db, 'scenes'), where('uid', '==', me.uid)));
+    let tot = 0;
+    snap.docs.forEach(d => { tot += d.data().captureCount || 0; });
+    document.getElementById('stat-scenes').textContent   = snap.docs.length;
+    document.getElementById('stat-captures').textContent = tot;
+    const sv = Math.floor(tot * 0.15 * 56000 / 1000);
+    document.getElementById('stat-strikes').textContent  = sv > 0 ? `$${sv}K` : '$0';
+  } catch {}
 }
-window.confirmSignOut=()=>openConfirm('Sign Out','Are you sure you want to sign out?',async()=>{
-  stopCam(); stopAR(); await signOut(auth); location.href='index.html';
+window.confirmSignOut = () => openConfirm('Sign Out', 'Are you sure you want to sign out?', async () => {
+  stopCam(); stopAR(); await signOut(auth); location.href = 'index.html';
 });
-window.exportData=()=>{
-  const blob=new Blob([JSON.stringify({scenes,exportedAt:new Date().toISOString(),user:me.email},null,2)],{type:'application/json'});
-  const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download='bleprint-export.json'; a.click(); URL.revokeObjectURL(u); toast('Data exported!','success');
+window.exportData = () => {
+  const blob = new Blob([JSON.stringify({ scenes, exportedAt: new Date().toISOString(), user: me.email }, null, 2)], { type: 'application/json' });
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = u; a.download = 'bleprint-export.json'; a.click();
+  URL.revokeObjectURL(u); toast('Data exported!', 'success');
 };
 
-/* ── MODALS ──────────────────────────────────────────────── */
-function openModal(id){document.getElementById(id).classList.remove('hidden');}
-function closeModal(id){document.getElementById(id).classList.add('hidden');}
-window.openModal=openModal; window.closeModal=closeModal;
-document.querySelectorAll('.modal-backdrop').forEach(b=>b.addEventListener('click',e=>{if(e.target===b)closeModal(b.id);}));
-let _cb=null;
-function openConfirm(title,msg,onOk){document.getElementById('confirm-title').textContent=title;document.getElementById('confirm-message').textContent=msg;_cb=onOk;openModal('modal-confirm');}
-document.getElementById('confirm-ok-btn').onclick=()=>{closeModal('modal-confirm');if(_cb){_cb();_cb=null;}};
+/* ─────────────────────────────────────────────────────────
+   MODALS
+───────────────────────────────────────────────────────── */
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+window.openModal  = openModal;
+window.closeModal = closeModal;
+document.querySelectorAll('.modal-backdrop').forEach(b =>
+  b.addEventListener('click', e => { if (e.target === b) closeModal(b.id); }));
+let _cb = null;
+function openConfirm(title, msg, onOk) {
+  document.getElementById('confirm-title').textContent   = title;
+  document.getElementById('confirm-message').textContent = msg;
+  _cb = onOk; openModal('modal-confirm');
+}
+document.getElementById('confirm-ok-btn').onclick = () => {
+  closeModal('modal-confirm'); if (_cb) { _cb(); _cb = null; }
+};
 
-/* ── UTIL ────────────────────────────────────────────────── */
-function h(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-window.addEventListener('popstate',()=>{
-  const id=document.querySelector('.screen.active')?.id;
-  if(id==='screen-detail')goToScenes();
-  else if(id==='screen-camera')closeCameraScreen();
-  else if(id==='screen-anchor')cancelAnchor();
-  else if(id==='screen-ar')closeARScreen();
+/* ─────────────────────────────────────────────────────────
+   UTILITY
+───────────────────────────────────────────────────────── */
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+window.addEventListener('popstate', () => {
+  const id = document.querySelector('.screen.active')?.id;
+  if      (id === 'screen-detail')  goToScenes();
+  else if (id === 'screen-camera')  closeCameraScreen();
+  else if (id === 'screen-anchor')  cancelAnchor();
+  else if (id === 'screen-ar')      closeARScreen();
 });
 </script>
 </body>
