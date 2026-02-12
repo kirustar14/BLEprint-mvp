@@ -160,7 +160,7 @@ git push
 7. Wait 1-2 minutes → your site will be live at:
 
    ```
-   https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/
+   https://kirustar14.github.io/BLEprint-mvp/
    ```
 
 ---
@@ -194,6 +194,6 @@ git push
 
 ## Your Live URL
 ```
-https://kirustar14.github.io/BLEprint/
+https://kirustar14.github.io/BLEprint-mvp/
 ```
-(or whatever your repo URL is — update this after publishing)
+
